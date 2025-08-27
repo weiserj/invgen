@@ -1,0 +1,6 @@
+lfd. Nummer;Folgezeile;Anrede;Name;Vorname;Adresse;Stadt;Postleitzahl;email;Tel-Nr;Konto;Zählpunkt;Rabatt;Rabatt-Zaehlernummer
+1.0;;Hr;Reidlinger;Markus;Liechtensteinstraße 14;Poysdorf;A-2170;markus.reidlinger@gmail.com;0664 6176655;AT66 1200 0007 6104 0906;AT0020000000000000000000100179078;;
+1.1;R;;;;;;;;;;;100.0;AT0020000000000000000000020350277
+2.0;;Hr;Reidlinger;Leopold;Liechtensteinstraße 12;Poysdorf;A-2170;markus.reidlinger@gmail.com;0699 12451465;AT66 1200 0007 6104 0906;AT0020000000000000000000020350277;;
+3.0;;Fr;Egger;Irmgard;Josefsplatz 14;Poysdorf;A-2170;office@ace-architekten.at;0676 7771612;;AT0020000000000000000000020346624;;
+3.1;F;;;;;;;;;;AT0020000000000000000000020351621;;

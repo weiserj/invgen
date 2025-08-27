@@ -1,0 +1,22 @@
+@page {
+  size: A4 portrait; /* Change from the default size of A4 */
+  margin: 1cm; /* Set margin on each page */
+}
+body {
+/*background-color: floralwhite;
+color: green; */
+/*padding: 10rem;*/
+font-size: 10px;
+}
+
+.verein {
+width=300px
+top: 0px
+right:0px
+}
+
+header {
+background-color: red;
+color: white;
+/*padding: 3rem;*/
+}

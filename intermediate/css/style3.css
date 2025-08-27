@@ -1,0 +1,63 @@
+@page {
+  size: A4 portrait; /* Change from the default size of A4 */
+  margin: 1cm; /* Set margin on each page */
+}
+body {
+/*background-color: floralwhite; */
+/*color: green; */
+/*padding: 10rem;*/
+font-size: 10px;
+}
+
+.verein {
+    position: absolute;
+	width: 300px;
+	top: 0px;
+	right: 0px;
+	font-size: 10px;
+	/*color: blue; */
+}
+
+.kunde {
+    box-sizing: border-box;
+    /*padding-top: 1cm;*/
+    padding-bottom: 1cm;
+    /*margin-top: 1cm;*/
+}
+.euro {
+    text-align: right;
+}
+.kwh {
+    text-align: right;
+}
+.center{
+    text-align: center
+}
+
+.hinweis {
+    padding-top: 1cm
+}
+
+.fett {
+    font-weight:bold;
+}
+
+.fettGross {
+    font-weight:bold;
+	font-size: large;
+}
+.tablestyle {
+  border: 1px solid black;
+  border-collapse: collapse;
+}
+
+table, th, td {
+  border: 1px solid black;
+  border-collapse: collapse;
+}
+
+header {
+/*background-color: red;
+color: white;*/
+/*padding: 3rem;*/
+}

@@ -1,0 +1,8 @@
+<p class="hinweis"><b>Hinweis:</b></p>
+<ul >
+  <li><b>Im Preis ist keine Mehrwertsteuer enthalten.</b></li>
+  <li><b>Sollten bis Ende des Monats keine berechtigten Beschwerden eintreffen, so wird der angegebene Betrag
+    von ihrem Konto abgebucht.</b></li>
+  <li><b>Dies ist eine Testversion der Rechnungserstellung. Im Moment wird noch KEIN(!!!) Betrag von ihrem
+    Konto abgebucht.</b></li>
+</ul>

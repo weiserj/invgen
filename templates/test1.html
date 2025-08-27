@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!--- <meta charset="UTF-8"> �  = &szlig; -->
+    <title>Der erste Test f&uuml;r eine pdf-Seite &szlig; </title>
+
+	<link href="css/style3.css" rel="stylesheet" />
+</head>
+<body>
+<p class="verein"><b>Verein: LOKALE ENERGIEGEMEINSCHAFT <br>TRAFOSTATION M&Uuml;HLE-POYSDORF,<br>
+PRODUZENT MARKUS REIDLINGER</b><br> ZVR-Zahl: 1828364955 Obmann: Johann Weiser<br>Unterer Markt 9, 2170 Poysdorf<br>
+Tel.-Nr.:0699-12770031, Email: johann.weiser@aon.at</p>
+
+<p class="kunde">An {{Anrede}} <br>{{Vorname}} {{Name}}<br>{{Adresse}}<br>{{Postleitzahl}} {{Stadt}}<br><br><br></p>
+<header>
+    <h1>Rechnung-Nr. 1/2024 </h1>
+</header>
+
+<p>Abrechnungszeitraum vom  1.6.2024 - 30.6.2024 </p>
+
+<table>
+  <tr>
+    <th>Z&auml;hlernummer</th>
+    <th class="center">Verbrauch<br>(kWh)</th>
+    <th class="center">Einspeisung<br>(kWh)</th>
+    <th class="center">Preis Brutto<br> (12Cent/kWh)</th>
+    <th class="center">MwSt<br>(%)</th>
+    <th class="center"> MwSt<br>(&euro;)</th>
+    <th class="center">Preis <br>Netto</th>
+  </tr>
+
+  {% for x in edaData %}
+  <tr>
+    <td> {{ x.Zählpunkt }} </td>
+    <td class="kwh">{{x.VerbrauchText}}</td>
+    <td class="kwh">{{x.LieferungText}}</td>  <!--Einspeisung -->
+    <td class="euro">{{x.preisBruttoText}}</td>
+    <td class="center">0 %</td>
+    <td class="euro">0,00</td>
+    <td class="euro">{{x.preisBruttoText}}</td>
+  </tr>
+  {% endfor %}
+
+
+
+
+{% for x in rabattGeber %}
+  <tr>
+  <td> {{x.rabattZeile.Rabatt}}
+    % Rabatt, von {{x.rabattGeber.Vorname}} {{x.rabattGeber.Name}}, &uuml;ber Z&auml;hlpunkt<br>{{ x.rabattGeber.Zählpunkt }} </td>
+      <td class="kwh">{{x.VerbrauchText}}</td>
+    <td class="kwh">{{x.LieferungText}}</td>  <!--Einspeisung -->
+    <td class="euro">{{x.preisBruttoText}}</td>
+    <td class="center">rabattGeber</td>
+    <td class="euro">0,00</td>
+    <td class="euro">{{x.preisBruttoText}}</td>
+  </tr>
+  {% endfor %}
+
+
+    {% for x in rabattNehmer %}
+  <tr>
+    <td> {{x.rabattZeile.Rabatt}}% Rabatt, f&uuml;r {{x.rabattNehmer.Vorname}} {{x.rabattNehmer.Name}}, &uuml;ber Z&auml;hlpunkt<br>{{ x.rabattNehmer.Zählpunkt }} </td>
+    <td class="kwh">{{x.LieferungText}}</td>
+    <td class="kwh">{{x.VerbrauchText}}</td>  <!--Einspeisung -->
+    <td class="euro">{{x.preisBruttoText}}</td>
+    <td class="center">rabattNehmer</td>
+    <td class="euro">0,00</td>
+    <td class="euro">{{x.preisBruttoText}}</td>
+  </tr>
+  {% endfor %}
+
+  <tfoot>
+  <tr>
+    <td class="fett">Zu zahlender Betrag(+)/<br>Guthaben(-)</td>
+    <td class="euro fett">{{summeVerbrauchText}}</td>
+    <td class="euro fett">{{summeLieferungText}}</td>
+    <td class="euro fett">{{summePreisBruttoText}}</td>
+    <td class="center fett">0 %</td>
+    <td class="euro fett">0,00</td>
+    <td class="euro fett">{{summePreisBruttoText}}</td>
+    </tr>
+  </tfoot>
+ </table>
+
+<p class="hinweis"><b>Hinweis:</b></p>
+<ul >
+  <li><b>Im Preis ist keine Mehrwertsteuer enthalten.</b></li>
+  <li><b>Sollten bis Ende des Monats keine berechtigten Beschwerden eintreffen, so wird der angegebene Betrag
+    von ihrem Konto abgebucht.</b></li>
+  <li><b>Dies ist eine Testversion der Rechnungserstellung. Im Moment wird noch KEIN(!!!) Betrag von ihrem
+    Konto abgebucht.</b></li>
+</ul>
+</body>
+
+</html>
