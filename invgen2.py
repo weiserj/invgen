@@ -5,6 +5,10 @@ from jinja2 import Environment, FileSystemLoader
 import csv
 import html
 import weasyprint
+import pathlib
+import datetime
+import time
+import invlog
 
 class Configuration:
     # Liste der Spaltenüberschriften,
@@ -17,27 +21,58 @@ class Configuration:
 
     def __init__(self):
         self.homeDir = '/home/johann/invgen'
+        # homeDir2 ist kein git-Directory (wie homeDir)
+        self.homeDir2 = '/home/johann/nogit'
+        # Input für invgen!! 
         self.dataDir = self.homeDir + '/data'
         self.mitgliederXlsx = self.dataDir + '/Mitgliederliste-Reidlinger.xlsx'
-        self.interm = self.homeDir + '/intermediate'
+        # alle im Lauf der Generierung erzeugten Daten sind nun im nogit-Teil!!
+        self.interm = self.homeDir2 + '/intermediate'
         self.mitgliederCsv = self.interm + '/Mitgliederliste-Reidlinger.csv'
         self.templateDir = self.homeDir + '/templates/'
-        self.edaFile = \
-            'Report_AT00200000000RC100122000000000037_20240601_20240630_202407111405.xlsx'
-        self.edaFileFull = self.dataDir + '/' + self.edaFile
+        self.resultDir = self.homeDir2 + '/results'
+        self.edaDataDir = self.dataDir + '/Reidlinger/neuesFormat'
+        #nun kommt die Liste der eda-Daten-Files
+        # ein solches File pro Monat!
+        self.inventYear = 2025
+        self.inventMonthFirst = 1
+        self.inventMonthLast = 1
+        # RC_Nummer ='RC103316' # für Wilhelmsdorf-Weiser
+        # RC_Nummer ='RC103317' # für Poysdorf-Weiser
+        self.RC_Nummer ='RC100122' # für Reidlinger
+        
+        # AT00200000000RC100122000000000037_20240601_20240630_202407111405.xlsx'
+        # self.edaFileFull = self.dataDir + '/' + self.edaFile
         self.edaUebersicht = self.interm + '/edaUebersicht.csv'
         self.edaPart1 = self.interm + '/edaPart1.csv'
         self.edaPart2 = self.interm + '/edaPart2.csv'
-        self.resultDir = self.homeDir + '/results'
-
+        
+    def createBasicDirectories(self):
+        # erzeugt alle Ausgabedrectories soferne sie nicht existieren
+        #im Moment nur der Anfang
+        p = pathlib.Path(self.interm)
+        if not p.exists():
+           p.mkdir(parents=True)
+        p = pathlib.Path(self.resultDir)
+        if not p.exists():
+           p.mkdir(parents=True)
+        pass
 
     def printAll(self):
-        print(self.homeDir)
-        print(self.dataDir)
-        print(self.mitgliederXlsx)
-        print(self.mitgliederCsv)
-        print(self.interm)
-        print(self.templateDir)
+        print()
+        print("General Configuration: class Configuration:")
+        print("homeDir = ", self.homeDir)
+        print("dataDir = ", self.dataDir)
+        print("mitgliederXlsx = ", self.mitgliederXlsx)
+        print("mitgliederCsv =", self.mitgliederCsv)
+        print("intermediateDir = ", self.interm)
+        print("templateDir = ", self.templateDir)
+        print("resultDir = ", self.resultDir)
+        print("edaDataDir = ", self.edaDataDir)
+        print("inventYear = ", self.inventYear)
+        print("inventMonthFirst = ",self.inventMonthFirst)
+        print("inventMonthLast = ",self.inventMonthLast)
+        print()
 
 class GenerationData:
     def __init__(self):
@@ -47,22 +82,30 @@ class GenerationData:
         # Folgezeilenkennzeichnung eine Eintrag
         # privateDict ist weider das Dictionary mit dem direkten Zugriff über den Zählpunkt
         # Wenn jemand mehrere Zählpunkte
+        #print("class GenerationData: ")
         self.edaList = []
         self.edaDict = {}
         self.privateList = []
         self.privateDict = {}
+        # die Liste der Dateien(jede für 1 Monat)
+        self.edaFileList = []
+        self.edaFilesOkay = True
+
+    def structTime_TO_dateTime(self, st):
+        return datetime.datetime(st.tm_year, st.tm_mon, st.tm_mday, st.tm_hour, st.tm_min, st.tm_sec)
+
     def addEdaElem(self, elem):
         # Es wird ein eda-Element hinzugefügt
         # Es wird sichergestellt dass es dafür zumindest einen dummy-Zählpunkt gibt
         self.edaList.append(elem)
         if type(elem) == dict:
             elem.update({'index': len(self.edaList)})
-            print(elem)
+            logger.info(f"{elem}")
             if 'Zählpunkt' not in elem:
                 elem.update({'Zählpunkt': 'AAA000'})
         self.edaDict.update({elem['Zählpunkt']:elem})
         # Testausgabe
-        print('edaZählpunkt:', elem['Zählpunkt'])
+        logger.info(f"edaZählpunkt:, {elem['Zählpunkt']}")
 
     def addPrivateElem(self, elem):
         '''
@@ -232,6 +275,10 @@ class GenerationData:
 
 
     def printAll(self):
+        print("\nclass GenerationData:")
+
+        # print(self.edaFileList)
+        print();
         print(f"edaList: Länge = {len(self.edaList)}")
         for x in self.edaList:
             print(x['Zählpunkt'])
@@ -298,13 +345,92 @@ class RabattLink:
 class InvoiceGeneration:
 
     def __init__(self):
+        # class Configuration und class GenerationData erstellen
+        # Rest derzeit in Kommentar, kommt später
         self.config = Configuration()
+        # self.config.printAll()
         # print('Hello world!!')
-        self.environment = Environment(loader=FileSystemLoader(self.config.templateDir))
+        #! self.environment = Environment(loader=FileSystemLoader(self.config.templateDir))
         # das template kann auch erst später dazukommen
-        self.template = self.environment.get_template("test2.html")
+        #! self.template = self.environment.get_template("test2.html")
         self.gd = GenerationData()
 
+    def checkEdaFiles(self):
+        def daysOfMonth(self, year, month):
+            if (month==1 or month== 3 or month==5 or month== 7 or month==8
+                or month==10 or month==12):
+                return 31
+            if (month==4 or month== 6 or month==9 or month==11):
+                return 30
+            if (year%4==0):
+                return 29
+            else:
+                return 28
+            
+        # begin of checkEdaFiles!!
+        # Daten sind in GenerationData (Variable self.gd gespeichert)
+        self.gd.edaFilesOkay = True           
+        for actMonth in range(self.config.inventMonthFirst, self.config.inventMonthLast + 1):
+            # print(actMonth)
+            fileName =  \
+                self.config.RC_Nummer + '_' + str(self.config.inventYear) + '-'+ f'{actMonth:02}' + '-1T00_00-'  \
+                + str(self.config.inventYear) + '-'+ f'{actMonth:02}' + '-' + \
+                f'{daysOfMonth(self, self.config.inventYear, actMonth)}T23_45.xlsx'
+            # print(fileName)
+            fileName = self.config.edaDataDir +"/" +fileName
+            fileName2 = f'{self.config.RC_Nummer}_{actMonth:02}_Uebersicht.csv'
+            fileName2 = f'{self.config.interm}/{fileName2}'
+            fileName3 = f'{self.config.RC_Nummer}_{actMonth:02}_edaPart1.csv'
+            fileName3 = f'{self.config.interm}/{fileName3}'
+            fileName4 = f'{self.config.RC_Nummer}_{actMonth:02}_edaPart2.csv'
+            fileName4 = f'{self.config.interm}/{fileName4}'
+            d = {'fileName': fileName, 'month': actMonth, 'exists': True,
+                 'ueberSicht':fileName2, 'edaPart1':fileName3, 'edaPart2':fileName4, 
+                 'timeBeginExpected': datetime.datetime(self.config.inventYear,actMonth, 1, 0, 0),
+                 'timeEndExpected': datetime.datetime(self.config.inventYear, actMonth,
+                    daysOfMonth(self, self.config.inventYear, actMonth), 23, 45),
+                 'timeBegin': None, 'timeEnd': None}
+                
+            p = pathlib.Path(fileName)
+            if not p.exists():
+                d['exists'] = False
+                self.gd.edaFilesOkay = False
+            self.gd.edaFileList.append(d)
+
+        # Ausgabe der edaFiles!!
+        print('edaFileList:')
+        for edf in self.gd.edaFileList:
+            print(edf)
+        if self.gd.edaFilesOkay==False:
+            print(f"****  edaFilesOkay={self.gd.edaFilesOkay}  ****")
+            print("****   Some Files do not exist!!!!  ****")
+
+        if self.gd.edaFilesOkay == False:
+            raise Exception("Missing eda-File")
+    
+    def checkPeriods(self, fileList):
+        # prüft, ob die Perioden genau einMonat sind bzw.  so wie im Namenenthalten!
+        logger.info("Monatszeiten der EDA-Dateien prüfen")
+        errorInChekPeriods = False
+        for fileDesc in fileList:
+            if fileDesc['timeBeginExpected'] != fileDesc['timeBegin']:
+               logger.error(f"*** error with begin time, month {fileDesc['month']}")
+               errorInChekPeriods = TextDirectionrue
+            else: 
+               logger.info(f"*** begin time okay, month {fileDesc['month']}")
+            logger.info(f"*** , {fileDesc['timeEndExpected']}, {fileDesc['timeEnd']}")
+
+            if fileDesc['timeEndExpected'] != (fileDesc['timeEnd']):
+                logger.error(f"*** error with end time, month {fileDesc['month']}")
+                errorInChekPeriods = True
+            else:
+                logger.info(f"*** end time okay, month {fileDesc['month']}")
+        if (errorInChekPeriods):
+            raise Exception("Error in method checkPeriods")
+        pass
+        
+
+    
     # Lesen und  konvertieren des Sheets 0
     def convertFileV2(self, xlsxFile: str, csvFile: str):
         #print('\nMethod: convertFileV2')
@@ -319,9 +445,9 @@ class InvoiceGeneration:
     # Hier darf es nur ein Sheet geben,aber man kann Zeilen
     # am Beginn weglassen!
     def convertFileV1(self, xlsxFile: str, csvFile: str, skiprows=None):
-        #print('\nMethod: convertFileV1')
-        #print("xlsx-File=" + xlsxFile)
-        #print("csv-File=" + csvFile)
+        # print('\nMethod: convertFileV1')
+        logger.info("xlsx-File=" + xlsxFile)
+        logger.info("csv-File=" + csvFile)
         read_file = pd.read_excel(xlsxFile, skiprows=skiprows)
         #pd.read_excel(xlsxFile)
         read_file.to_csv(csvFile, index=None, header=True, sep=';')
@@ -337,9 +463,9 @@ class InvoiceGeneration:
     """
 
     def edaPart1(self, strfilein: str, strfileout: str):
-        #print('\nMethod: edaPart1')
-        #print("strfilein=" + strfilein)
-        #print("strfileout=" + strfileout)
+        # print('\nMethod: edaPart1')
+        logger.info("strfilein=" + strfilein)
+        logger.info("strfileout=" + strfileout)
 
         i = 0
         with open(strfilein, mode='r') as filein:
@@ -347,7 +473,7 @@ class InvoiceGeneration:
                 for line in filein:
                     i = i + 1
                     #print(i, line, end='')
-                    if (i > 1 and i < 5):
+                    if (i > 1 and i < 4): # Zeilemobergrenze von 5 auf 4 gesetzt
                         pass
                         print(line, file=fileout, end='')
 
@@ -368,9 +494,9 @@ class InvoiceGeneration:
     """
 
     def edaPart2(self, strfilein: str, strfileout: str):
-        #print('\n### Method: edaPart2')
-        #print("strfilein=" + strfilein)
-        #print("strfileout=" + strfileout)
+        # print('\n### Method: edaPart2')
+        logger.info("strfilein=" + strfilein)
+        logger.info("strfileout=" + strfileout)
 
         i = 0
         with open(strfilein, mode='r') as filein:
@@ -378,7 +504,7 @@ class InvoiceGeneration:
                 for line in filein:
                     i = i + 1
                     # print(i, line, end='')
-                    if (i > 7 and i < 15):
+                    if (i > 4 and i < 15): #erste Zeie wurde von 7 auf 4 geändert
                         pass
                         print(line, file=fileout, end='')
 
@@ -396,14 +522,22 @@ class InvoiceGeneration:
         gedacht.     
     """
 
-    def readEda1(self, strfile):
-        #print('\n### Method: readEda1')
-        #print("strfile=" + strfile)
+    def readEda1(self, fileDesc):
+        # def readEda1(self, strfile):
+        # print('\n### Method: readEda1')
+        logger.info("strfile=" + fileDesc['edaPart1'])
 
-        with open(strfile, newline='') as csvfile:
+        with open(fileDesc['edaPart1'], newline='') as csvfile:
             reader = csv.DictReader(csvfile, delimiter=';')
             for row in reader:
                 print(row['Zeitraum von'], row['Zeitraum bis'], '\n')
+                structTime = time.strptime(row['Zeitraum von'], '%Y-%m-%d %H:%M:%S')
+                fileDesc['timeBegin'] = self.gd.structTime_TO_dateTime(structTime)
+                print(fileDesc['timeBegin'])
+                structTime = time.strptime(row['Zeitraum bis'], '%Y-%m-%d %H:%M:%S')
+                fileDesc['timeEnd'] = self.gd.structTime_TO_dateTime(structTime)
+                print(fileDesc['timeEnd'])
+                pass
 
     """
     Methode readEda2
@@ -415,8 +549,8 @@ class InvoiceGeneration:
     """
 
     def readEda2(self, strfile):
-        print('\n### Method: readEda2')
-        print("strfile=" + strfile)
+        #print('\n### Method: readEda2')
+        logger.info("strfile=" + strfile)
 
         self.gd.summeVerbrauch = 0
         self.gd.summeVerbrauchExists = False
@@ -462,10 +596,10 @@ class InvoiceGeneration:
                     #summeLieferung += interm['Lieferung']
                 baseString = '{zaehlpunkt: <35}{type: <20}{lieferung: >15.6f}{verbrauch: >15s}'
 
-                print(row['Zählpunkt'], row['Energierichtung'],
-                      row['Gesamte gemeinschaftliche Erzeugung [KWH]'],  # Spalte "K"
-                      row['Eigendeckung gemeinschaftliche Erzeugung [KWH]'],  # Spalte "I" Verbrauch
-                      row['Restüberschuss bei EG und je ZP [KWH]']  # Spalte "N"
+                logger.info(f"{row['Zählpunkt']}, {row['Energierichtung']}, " + 
+                      f"{row['Gesamte gemeinschaftliche Erzeugung [KWH]']}," +  # Spalte "K"
+                      f"{row['Eigendeckung gemeinschaftliche Erzeugung [KWH]']}," +  # Spalte "I" Verbrauch
+                      f"{row['Restüberschuss bei EG und je ZP [KWH]']}"  # Spalte "N"
                       )
                 res.append(row)
                 self.gd.addEdaElem(row)
@@ -473,6 +607,7 @@ class InvoiceGeneration:
             return res
 
     def createPrivate(self, csvFile: str):
+        logger.info("strfile=" + csvfile)
         #data = open(template).read()
         #p = pathlib.Path(invoiceDir)
         #if not p.exists():
@@ -696,28 +831,55 @@ class InvoiceGeneration:
             self.url_to_pdf(fileNameIn, fileNameOut)
 
 
-
+    # das Hauptprogramm, im Moment fast alles in Kommentar
     def invoiceGeneration(self):
-        # Migliederlist in csv-Formt umwandeln
+        # Hier werden bei Bedarf fehlene Ausgabe-directories erzeugt
+        self.config.createBasicDirectories()
+        # Ausgeben der allgemeinen Konfigurationsdaten
+        self.config.printAll()
+        #Eintragen (in GenerationData) und Prüfen der eda-Files  und ausgeben
+        self.checkEdaFiles()
+        # Migliederliste in csv-Formt umwandeln
         self.convertFileV1(self.config.mitgliederXlsx, self.config.mitgliederCsv, [0, 1])
-        self.convertFileV1(self.config.edaFileFull, self.config.edaUebersicht)
-        self.edaPart1(self.config.edaUebersicht, self.config.edaPart1)
-        self.edaPart2(self.config.edaUebersicht, self.config.edaPart2)
-        self.readEda1(self.config.edaPart1)
-        self.readEda2(self.config.edaPart2)
-        self.createPrivate(self.config.mitgliederCsv)
-        self.ermittleRechnungsSummen2()
-        self.createHtmlInvoice()
-        self.createPDFInvoice()
+        for list in self.gd.edaFileList:
+            self.convertFileV1(list['fileName'], list['ueberSicht'])
+            #self.convertFileV1(self.gd.edaFileList[0]['fileName'], self.gd.edaFileList[0]['ueberSicht'])
+            self.edaPart1(list['ueberSicht'], list['edaPart1'])
+            self.edaPart2(list['ueberSicht'], list['edaPart2'])
+            self.readEda1(list)
+            self.readEda2(list['edaPart2'])
+            pass
+        self.checkPeriods(self.gd.edaFileList)
+        #self.edaPart2(self.config.edaUebersicht, self.config.edaPart2)
+        #self.readEda1(self.config.edaPart1)
+        #self.readEda2(self.config.edaPart2)
+        #self.createPrivate(self.config.mitgliederCsv)
+        #self.ermittleRechnungsSummen2()
+        #self.createHtmlInvoice()
+        #self.createPDFInvoice()
 
 
-
+# ursprüngliche Version
+# Startpunkt Programm invgen2.py
+# Logger starten
+logger = invlog.loggerTest()
+logger.info("Here is invgen!")
+# - Initialisierung von Configuration (befüllt) und GenerationData (zunächst leer) 
 ig = InvoiceGeneration()
+# - Hier läuft das Hauptprogramm, soweit es nicht kommentiert ist
+ig.invoiceGeneration()
+logger.info("Finishing invgen now...")
 #print(ig.config.dataDir)
 #ig.config.printAll()
 #ig.gd.addPrivateElem({"abc": 17})
 #ig.gd.addPrivateElem({"Zählpunkt": "BBB"})
 
-ig.invoiceGeneration()
+
+
+
 #html.unescape()
 #ig.gd.printAll()
+
+# config = Configuration()
+# config.printAll()
+logger.info("Byby world!")
