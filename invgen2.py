@@ -9,6 +9,7 @@ import pathlib
 import datetime
 import time
 import invlog
+import logging
 
 class Configuration:
     # Liste der Spaltenüberschriften,
@@ -36,7 +37,7 @@ class Configuration:
         # ein solches File pro Monat!
         self.inventYear = 2025
         self.inventMonthFirst = 1
-        self.inventMonthLast = 1
+        self.inventMonthLast = 3
         # RC_Nummer ='RC103316' # für Wilhelmsdorf-Weiser
         # RC_Nummer ='RC103317' # für Poysdorf-Weiser
         self.RC_Nummer ='RC100122' # für Reidlinger
@@ -100,12 +101,13 @@ class GenerationData:
         self.edaList.append(elem)
         if type(elem) == dict:
             elem.update({'index': len(self.edaList)})
-            logger.info(f"{elem}")
+            # Testausgabe: das ganze Element
+            logger.info(f"#2: - {elem}")
             if 'Zählpunkt' not in elem:
                 elem.update({'Zählpunkt': 'AAA000'})
         self.edaDict.update({elem['Zählpunkt']:elem})
-        # Testausgabe
-        logger.info(f"edaZählpunkt:, {elem['Zählpunkt']}")
+        # Testausgabe:nur der Zähpunkt!!
+        logger.info(f"#3: - edaZählpunkt:, {elem['Zählpunkt']}")
 
     def addPrivateElem(self, elem):
         '''
@@ -350,9 +352,9 @@ class InvoiceGeneration:
         self.config = Configuration()
         # self.config.printAll()
         # print('Hello world!!')
-        #! self.environment = Environment(loader=FileSystemLoader(self.config.templateDir))
+        self.environment = Environment(loader=FileSystemLoader(self.config.templateDir))
         # das template kann auch erst später dazukommen
-        #! self.template = self.environment.get_template("test2.html")
+        self.template = self.environment.get_template("test2.html")
         self.gd = GenerationData()
 
     def checkEdaFiles(self):
@@ -563,51 +565,72 @@ class InvoiceGeneration:
         # with open(strfile, newline='' """encoding='utf-8' """ ) as csvfile:
         with open(strfile, newline='') as csvfile:
             reader = csv.DictReader(csvfile, delimiter=';')
-            res = []
             for row in reader:
-                if row[Configuration.rowstr[1]] == 'CONSUMPTION':
-                    x = row[Configuration.rowstr[3]]
-                    y = float(x.replace(' ', '').replace(',', '.'))
-                    row['Verbrauch'] = float(x.replace(' ', '').replace(',', '.'))
-                    row['VerbrauchText']='{verbrauch: >8.2f}'.format(verbrauch=y)
-                    z = y * 0.12
-                    row['preisBrutto'] = z
-                    row['preisBruttoText'] = '{verbrauch: >8.2f}'.format(verbrauch=z)
-                    baseString = '{zaehlpunkt: <35}{type: <20}{lieferung: >15s}{verbrauch: >15.6f}'
-                    # self.gd.summeVerbrauch += y
-                    # self.gd.summeVerbrauchExists = True
-                    # self.gd.summePreisBrutto += z
-                    # self.gd.summePreisBruttoExists = True
-                elif row[Configuration.rowstr[1]] == 'GENERATION':
-                    y = row[Configuration.rowstr[4]]
-                    y = float(y.replace(' ', '').replace(',', '.'))
-                    x = row[Configuration.rowstr[2]]
-                    x = float(x.replace(' ', '').replace(',', '.'))
-                    x1 = y -x
-                    row['Lieferung'] = x1
-                    row['LieferungText'] = "{Lieferung:>8.2f}".format(Lieferung=x1)
-                    # self.gd.summeLieferung += x1
-                    # self.gd.summeLieferungExists = True
-                    z = x1 * 0.12
-                    row['preisBrutto'] = z
-                    row['preisBruttoText'] = '{verbrauch: >8.2f}'.format(verbrauch=z)
-                    # self.gd.summePreisBrutto += z
-                    # self.gd.summePreisBruttoExists = True
-                    #summeLieferung += interm['Lieferung']
-                baseString = '{zaehlpunkt: <35}{type: <20}{lieferung: >15.6f}{verbrauch: >15s}'
-
-                logger.info(f"{row['Zählpunkt']}, {row['Energierichtung']}, " + 
+                if not (row['Zählpunkt'] in self.gd.edaDict):
+                    logger.info(f"Zählpunkt {row['Zählpunkt']} must be created")
+                    self.createZaehlpunkt(row)
+                    #Zählüunkt wurde erzeugt und muss indictionary eingetragen werden
+                    self.gd.addEdaElem(row)
+                else:
+                    logger.info(f"Zählpunkt {row['Zählpunkt']} already exists")
+                    self.updateZaehlpunkt(self.gd.edaDict[row['Zählpunkt']], row)
+                    # Zählpunkt wurdenur geändert!!
+ 
+                logger.info(f"#1 - {row['Zählpunkt']}, {row['Energierichtung']}, " + 
                       f"{row['Gesamte gemeinschaftliche Erzeugung [KWH]']}," +  # Spalte "K"
                       f"{row['Eigendeckung gemeinschaftliche Erzeugung [KWH]']}," +  # Spalte "I" Verbrauch
                       f"{row['Restüberschuss bei EG und je ZP [KWH]']}"  # Spalte "N"
                       )
-                res.append(row)
-                self.gd.addEdaElem(row)
-            print()
-            return res
+        return 
+
+    def createZaehlpunkt(self, row):
+            if row[Configuration.rowstr[1]] == 'CONSUMPTION':
+                x = row[Configuration.rowstr[3]]
+                y = float(x.replace(' ', '').replace(',', '.'))
+                row['Verbrauch'] = y
+                row['VerbrauchText']='{verbrauch: >8.2f}'.format(verbrauch=y)
+                z = y * 0.12
+                row['preisBrutto'] = z
+                row['preisBruttoText'] = '{verbrauch: >8.2f}'.format(verbrauch=z)
+            elif row[Configuration.rowstr[1]] == 'GENERATION':
+                y = row[Configuration.rowstr[4]]
+                y = float(y.replace(' ', '').replace(',', '.'))
+                x = row[Configuration.rowstr[2]]
+                x = float(x.replace(' ', '').replace(',', '.'))
+                x1 = y -x
+                row['Lieferung'] = x1
+                row['LieferungText'] = "{Lieferung:>8.2f}".format(Lieferung=x1)
+                z = x1 * 0.12
+                row['preisBrutto'] = z
+                row['preisBruttoText'] = '{verbrauch: >8.2f}'.format(verbrauch=z)
+            pass
+
+    def updateZaehlpunkt(self, existingRow, newRow):
+            if newRow[Configuration.rowstr[1]] == 'CONSUMPTION':
+                x = newRow[Configuration.rowstr[3]]
+                y = existingRow['Verbrauch'] + float(x.replace(' ', '').replace(',', '.'))
+                existingRow['Verbrauch'] = y
+                existingRow['VerbrauchText']='{verbrauch: >8.2f}'.format(verbrauch=y)
+                z = y * 0.12 + existingRow['preisBrutto']
+                existingRow['preisBrutto'] = z
+                existingRow['preisBruttoText'] = '{verbrauch: >8.2f}'.format(verbrauch=z)
+            elif newRow[Configuration.rowstr[1]] == 'GENERATION':
+                # Wert von Spalte #4 holen(als y) und gleich mit float überechreiben!
+                y = newRow[Configuration.rowstr[4]]
+                y = float(y.replace(' ', '').replace(',', '.'))
+                # Wert von Spalte #2 holen(als x) und gleich mit float überschreiben!
+                x = newRow[Configuration.rowstr[2]]
+                x = float(x.replace(' ', '').replace(',', '.'))
+                x1 = existingRow['Lieferung'] + y -x
+                existingRow['Lieferung'] = x1
+                existingRow['LieferungText'] = "{Lieferung:>8.2f}".format(Lieferung=x1)
+                z = x1 * 0.12
+                existingRow['preisBrutto'] = z
+                existingRow['preisBruttoText'] = '{verbrauch: >8.2f}'.format(verbrauch=z)
+            pass
 
     def createPrivate(self, csvFile: str):
-        logger.info("strfile=" + csvfile)
+        logger.info("strfile=" + csvFile)
         #data = open(template).read()
         #p = pathlib.Path(invoiceDir)
         #if not p.exists():
@@ -782,7 +805,8 @@ class InvoiceGeneration:
         """
         Hier beginn die HTML Erzeugung mit jinja
         """
-
+        logger.setLevel(logging.INFO)
+        logger.info("begin createHTMLInvoice" )
         for privateElem in self.gd.privateList:
 
             fileName = self.config.interm +\
@@ -853,10 +877,10 @@ class InvoiceGeneration:
         #self.edaPart2(self.config.edaUebersicht, self.config.edaPart2)
         #self.readEda1(self.config.edaPart1)
         #self.readEda2(self.config.edaPart2)
-        #self.createPrivate(self.config.mitgliederCsv)
-        #self.ermittleRechnungsSummen2()
-        #self.createHtmlInvoice()
-        #self.createPDFInvoice()
+        self.createPrivate(self.config.mitgliederCsv)
+        self.ermittleRechnungsSummen2()
+        self.createHtmlInvoice()
+        self.createPDFInvoice()
 
 
 # ursprüngliche Version

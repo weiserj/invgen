@@ -19,7 +19,8 @@ def loggerTest():
     logger.addHandler(sh)
     logger.addHandler(fh)
     # Logging-Level festsetzen
-    logger.setLevel(logging.INFO)
+    # loggging Levels: DEBUG, INFO WARNING, ERROR, CRITTICAL
+    logger.setLevel(logging.WARNING)
     # 2 Messgaes absetzen,wird nicht gemacht,
     # do_any(logger)
     return logger
