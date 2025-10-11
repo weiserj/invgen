@@ -21,7 +21,7 @@ class Configuration:
               ]
 
     def __init__(self):
-        self.homeDir = '/home/johann/invgen'
+        self.homeDir = '/home/johann/repos2/invgen'
         # homeDir2 ist kein git-Directory (wie homeDir)
         self.homeDir2 = '/home/johann/nogit'
         # Input für invgen!! 
@@ -144,7 +144,7 @@ class GenerationData:
         else:
             elem['edaListeGeberFlag'] = True
             elem['edaListeGeber'].append(edaElem)
-
+        logger.warning(edaElem)
         #diese Listen als Komponente edaData eintragen
         #
         # elem ist das privateElem - nichts zu tun
@@ -171,10 +171,15 @@ class GenerationData:
             privateElem['edaListeNehmerFlag'] = True
             privateElem['edaListeNehmer'].append(edaElem)
         else:
+            # vermutlich privateElem statt elem, aber es kommt  im Moment nicht vor
+            # das kommt nur vor, wenn zwei Produzenten für einen Konsumenten Rabatt geben!
             elem['edaListeGeberFlag'] = True
             elem['edaListeGeber'].append(edaElem)
         #edaList = privateElem['edaData']
         #edaList.append(edaElem)
+        # SEHR WICHTIG!!! Hier wird ein Zusatzzählpunkt zum EEG-Teinehmer hinzugefügt!!
+        # #############################################################################
+        self.privateDict[zp2] = privateElem
 
     def addRabatt2(self, rabattNehmerZp, rabattGeberZp):
         self.rl = RabattLink()
@@ -255,19 +260,40 @@ class GenerationData:
             privateElemGeber['rabattNehmer'] = []
         privateElemGeber['rabattNehmer'].append(rabattElem)
 
-        value1 = -rabattElem['edaData']['Verbrauch']
-        rabattElem['Verbrauch'] = value1
-        rabattElem['VerbrauchText'] = "{value: >8.2f}".format(value=value1)
-        value2 = -rabattElem['edaData']['preisBrutto']
-        rabattElem['preisBrutto'] = value2
-        rabattElem['preisBruttoText'] = "{value: >8.2f}".format(value=value2)
+        #korektur des Prozentwertes auf ganze Zahlen,
+        # das passiertvor  den Rechnungen
+        rabattFlag = False
+        x = rabattElem['rabattZeile']['Rabatt']
+        if x != '':
+            rabattElem['rabattZeile']['Rabatt'] = int(float(x))
+            rabattFlag = True
+        if rabattFlag == True:
+            percentFactor = float(rabattElem['rabattZeile']['Rabatt']) / 100
+        else:
+            centFactor = float(rabattElem['rabattZeile']['Rabatt-Cent']) * 0.01
+
+        if rabattFlag == True:
+            value1 = -rabattElem['edaData']['Verbrauch'] * percentFactor
+            rabattElem['Verbrauch'] = value1
+            rabattElem['VerbrauchText'] = "{value: >8.2f}".format(value=value1)
+            value2 = -rabattElem['edaData']['preisBrutto']
+            rabattElem['preisBrutto'] = value2 * percentFactor
+            rabattElem['preisBruttoText'] = "{value: >8.2f}".format(value=value2)
+        else: 
+            rabattElem['Verbrauch'] = 0
+            rabattElem['VerbrauchText'] = ''
+            value2 = -rabattElem['edaData']['Verbrauch']
+            value2 *= centFactor
+            rabattElem['preisBrutto'] = value2 
+            rabattElem['preisBruttoText'] = "{value: >8.2f}".format(value=value2)
 
         #korektur des Prozentwertes auf ganze Zahlen
         #value = rabattElem['rabattZeile']['Rabatt']
         #print('value:', rabattElem['rabattZeile']['Rabatt'])
         #value1 = int(float(value))
         #print('value1', value1)
-        rabattElem['rabattZeile']['Rabatt'] = int(float(rabattElem['rabattZeile']['Rabatt']))
+        # die nächsten 3 Zeilen ersetzen die den nächsten Kommentar?
+        # rabattElem['rabattZeile']['Rabatt'] = int(float(rabattElem['rabattZeile']['Rabatt']))
 
         print("*** rabat-eda: ", rabattElem['edaData'])
         print("*** rabatt-Zeile: ", rabattElem['rabattZeile'])
@@ -417,7 +443,7 @@ class InvoiceGeneration:
         for fileDesc in fileList:
             if fileDesc['timeBeginExpected'] != fileDesc['timeBegin']:
                logger.error(f"*** error with begin time, month {fileDesc['month']}")
-               errorInChekPeriods = TextDirectionrue
+               errorInChekPeriods = True
             else: 
                logger.info(f"*** begin time okay, month {fileDesc['month']}")
             logger.info(f"*** , {fileDesc['timeEndExpected']}, {fileDesc['timeEnd']}")
@@ -571,19 +597,28 @@ class InvoiceGeneration:
                     self.createZaehlpunkt(row)
                     #Zählüunkt wurde erzeugt und muss indictionary eingetragen werden
                     self.gd.addEdaElem(row)
+                    changedRow= row
                 else:
                     logger.info(f"Zählpunkt {row['Zählpunkt']} already exists")
                     self.updateZaehlpunkt(self.gd.edaDict[row['Zählpunkt']], row)
                     # Zählpunkt wurdenur geändert!!
- 
-                logger.info(f"#1 - {row['Zählpunkt']}, {row['Energierichtung']}, " + 
-                      f"{row['Gesamte gemeinschaftliche Erzeugung [KWH]']}," +  # Spalte "K"
-                      f"{row['Eigendeckung gemeinschaftliche Erzeugung [KWH]']}," +  # Spalte "I" Verbrauch
-                      f"{row['Restüberschuss bei EG und je ZP [KWH]']}"  # Spalte "N"
+                    changedRow= self.gd.edaDict[row['Zählpunkt']]
+                    logger2.info(f"#1 - {changedRow['Zählpunkt']}, {changedRow['Energierichtung']}, " + 
+                      f" Preis: {changedRow['preisBrutto']}" +
+                      f"{changedRow['Gesamte gemeinschaftliche Erzeugung [KWH]']}," +  # Spalte "K"
+                      f"{changedRow['Eigendeckung gemeinschaftliche Erzeugung [KWH]']}," +  # Spalte "I" Verbrauch
+                      f"{changedRow['Restüberschuss bei EG und je ZP [KWH]']}"  # Spalte "N"
                       )
+                    if 'Verbrauch' in changedRow:
+                        logger2.info(f"#1a Verbrauch: {changedRow['Verbrauch']}")
+                    else:
+                        logger2.info(f"#1b Lieferung: {changedRow['Lieferung']}")
         return 
 
     def createZaehlpunkt(self, row):
+            logger.info(f"Anfang: {row}")
+            if row['Zählpunkt']=='AT0020000000000000000000020350281':
+                pass
             if row[Configuration.rowstr[1]] == 'CONSUMPTION':
                 x = row[Configuration.rowstr[3]]
                 y = float(x.replace(' ', '').replace(',', '.'))
@@ -606,12 +641,15 @@ class InvoiceGeneration:
             pass
 
     def updateZaehlpunkt(self, existingRow, newRow):
+            if existingRow['Zählpunkt']=='AT0020000000000000000000020350281':
+                pass
+
             if newRow[Configuration.rowstr[1]] == 'CONSUMPTION':
                 x = newRow[Configuration.rowstr[3]]
                 y = existingRow['Verbrauch'] + float(x.replace(' ', '').replace(',', '.'))
                 existingRow['Verbrauch'] = y
                 existingRow['VerbrauchText']='{verbrauch: >8.2f}'.format(verbrauch=y)
-                z = y * 0.12 + existingRow['preisBrutto']
+                z = y * 0.12  # + existingRow['preisBrutto'] !! da wird 2Mal hinzugefügt !!
                 existingRow['preisBrutto'] = z
                 existingRow['preisBruttoText'] = '{verbrauch: >8.2f}'.format(verbrauch=z)
             elif newRow[Configuration.rowstr[1]] == 'GENERATION':
@@ -628,6 +666,8 @@ class InvoiceGeneration:
                 existingRow['preisBrutto'] = z
                 existingRow['preisBruttoText'] = '{verbrauch: >8.2f}'.format(verbrauch=z)
             pass
+            logger.info(f"\nexisting: {existingRow}, \nnew    : {newRow}" )
+    
 
     def createPrivate(self, csvFile: str):
         logger.info("strfile=" + csvFile)
@@ -641,10 +681,12 @@ class InvoiceGeneration:
                 if row['Folgezeile'] == "":
                     lastMainZp = row['Zählpunkt']
                     self.gd.addPrivateElem(row)
+                    logger.warning(f"*** privateMain,  {row}")
                 elif row['Folgezeile'] == "F":
                     zp2 = row['Zählpunkt']
                     # da dürfte noch ein Fehler sein!
                     self.gd.addZaehlpunkt(lastMainZp, zp2)
+                    logger.warning(f"*** Folgezeile,  {row}, zp2={zp2}")
 
         #in dernzweiten Runde werden nur die Rabatte gesetzt (keine
         # Vorwärtreferenzen auf noch nicht eingetragene Zählpunkte mehr
@@ -805,7 +847,6 @@ class InvoiceGeneration:
         """
         Hier beginn die HTML Erzeugung mit jinja
         """
-        logger.setLevel(logging.INFO)
         logger.info("begin createHTMLInvoice" )
         for privateElem in self.gd.privateList:
 
@@ -864,21 +905,28 @@ class InvoiceGeneration:
         #Eintragen (in GenerationData) und Prüfen der eda-Files  und ausgeben
         self.checkEdaFiles()
         # Migliederliste in csv-Formt umwandeln
+        logger.setLevel(logging.INFO)
         self.convertFileV1(self.config.mitgliederXlsx, self.config.mitgliederCsv, [0, 1])
+        logger.setLevel(logging.WARNING)
         for list in self.gd.edaFileList:
             self.convertFileV1(list['fileName'], list['ueberSicht'])
             #self.convertFileV1(self.gd.edaFileList[0]['fileName'], self.gd.edaFileList[0]['ueberSicht'])
             self.edaPart1(list['ueberSicht'], list['edaPart1'])
             self.edaPart2(list['ueberSicht'], list['edaPart2'])
             self.readEda1(list)
+            logger.setLevel(logging.INFO)
             self.readEda2(list['edaPart2'])
+            logger.setLevel(logging.WARNING)
             pass
         self.checkPeriods(self.gd.edaFileList)
         #self.edaPart2(self.config.edaUebersicht, self.config.edaPart2)
         #self.readEda1(self.config.edaPart1)
         #self.readEda2(self.config.edaPart2)
+        logger.setLevel(logging.INFO)
         self.createPrivate(self.config.mitgliederCsv)
+        logger.setLevel(logging.WARNING)
         self.ermittleRechnungsSummen2()
+        # logger.setLevel(logging.INFO)
         self.createHtmlInvoice()
         self.createPDFInvoice()
 
@@ -886,12 +934,18 @@ class InvoiceGeneration:
 # ursprüngliche Version
 # Startpunkt Programm invgen2.py
 # Logger starten
-logger = invlog.loggerTest()
+d = invlog.loggerTest() 
+logger2 = d['logger2']
+logger2.setLevel(logging.INFO)
+logger = d['logger'] 
+logger2.info("Hallo")
 logger.info("Here is invgen!")
 # - Initialisierung von Configuration (befüllt) und GenerationData (zunächst leer) 
 ig = InvoiceGeneration()
 # - Hier läuft das Hauptprogramm, soweit es nicht kommentiert ist
 ig.invoiceGeneration()
+# am Ende kommt die Endemeldung
+logger.setLevel(logging.INFO)
 logger.info("Finishing invgen now...")
 #print(ig.config.dataDir)
 #ig.config.printAll()
