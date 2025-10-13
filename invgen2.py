@@ -37,7 +37,7 @@ class Configuration:
         # ein solches File pro Monat!
         self.inventYear = 2025
         self.inventMonthFirst = 1
-        self.inventMonthLast = 3
+        self.inventMonthLast = 6
         # RC_Nummer ='RC103316' # für Wilhelmsdorf-Weiser
         # RC_Nummer ='RC103317' # für Poysdorf-Weiser
         self.RC_Nummer ='RC100122' # für Reidlinger
@@ -47,7 +47,9 @@ class Configuration:
         self.edaUebersicht = self.interm + '/edaUebersicht.csv'
         self.edaPart1 = self.interm + '/edaPart1.csv'
         self.edaPart2 = self.interm + '/edaPart2.csv'
-        
+
+
+
     def createBasicDirectories(self):
         # erzeugt alle Ausgabedrectories soferne sie nicht existieren
         #im Moment nur der Anfang
@@ -76,7 +78,7 @@ class Configuration:
         print()
 
 class GenerationData:
-    def __init__(self):
+    def __init__(self, config):
         # edaList ist die Liste der EDA-Einträge, einen pro Zählpunkt
         # edaDict ist das Dictionary, mit dem man über den Zählpunkt zugreifen kann
         # privateList ist die Liste der Mitglieder: Grundsätzlich gibt es pro Zeile (ohne
@@ -91,6 +93,20 @@ class GenerationData:
         # die Liste der Dateien(jede für 1 Monat)
         self.edaFileList = []
         self.edaFilesOkay = True
+        self.consecutiveInventNumber = 0
+        self.config = config
+
+    def increaseInventoryNumber(self):
+        # Rechnungsnummer:
+        # Format: Rnnnn-YYYY-mm
+        #    nnnn: fortlaufende Nummer beginnt meist bei 1 da proMonat nur eine Rechnung ausgeschickt wird
+        #    YYYY: Jahr vierstellig
+        #    mm:Monat Monat ist die Nummer des Monats, bis zu welchem die Rechnung vorgeschrieben wird
+        #         09 heißt die Rechnung  für den Strom bis inklusive Ende September wird gestellt
+        self.consecutiveInventNumber += 1
+        self.inventNo = f"R{self.consecutiveInventNumber:04}-{self.config.inventYear}-{self.config.inventMonthLast:02}"
+        return self.inventNo
+
 
     def structTime_TO_dateTime(self, st):
         return datetime.datetime(st.tm_year, st.tm_mon, st.tm_mday, st.tm_hour, st.tm_min, st.tm_sec)
@@ -381,7 +397,16 @@ class InvoiceGeneration:
         self.environment = Environment(loader=FileSystemLoader(self.config.templateDir))
         # das template kann auch erst später dazukommen
         self.template = self.environment.get_template("test2.html")
-        self.gd = GenerationData()
+        self.gd = GenerationData(self.config)
+
+    def monatsName(self, monat):
+        namensListe={1:"J&auml;nner", 2:"Februar", 3:"M&auml;rz", 4:"April", 5:"Mai", 6:"Juni", 7:"Juli", 
+                    8:"August", 9:"September", 10:"Oktober", 11:"November", 12:"Dezember"}
+        return namensListe[monat]
+    
+    def convertDateToGerman(self, myDate):
+        # eines Datums in deutscher Notation    
+        return f"{myDate.day}. {self.monatsName(myDate.month)} {myDate.year}"
 
     def checkEdaFiles(self):
         def daysOfMonth(self, year, month):
@@ -401,7 +426,7 @@ class InvoiceGeneration:
         for actMonth in range(self.config.inventMonthFirst, self.config.inventMonthLast + 1):
             # print(actMonth)
             fileName =  \
-                self.config.RC_Nummer + '_' + str(self.config.inventYear) + '-'+ f'{actMonth:02}' + '-1T00_00-'  \
+                self.config.RC_Nummer + '_' + str(self.config.inventYear) + '-'+ f'{actMonth:02}' + '-01T00_00-'  \
                 + str(self.config.inventYear) + '-'+ f'{actMonth:02}' + '-' + \
                 f'{daysOfMonth(self, self.config.inventYear, actMonth)}T23_45.xlsx'
             # print(fileName)
@@ -418,17 +443,25 @@ class InvoiceGeneration:
                  'timeEndExpected': datetime.datetime(self.config.inventYear, actMonth,
                     daysOfMonth(self, self.config.inventYear, actMonth), 23, 45),
                  'timeBegin': None, 'timeEnd': None}
-                
+
+                    
             p = pathlib.Path(fileName)
             if not p.exists():
                 d['exists'] = False
                 self.gd.edaFilesOkay = False
+                print(f"File missing: {p}")
             self.gd.edaFileList.append(d)
+
 
         # Ausgabe der edaFiles!!
         print('edaFileList:')
         for edf in self.gd.edaFileList:
             print(edf)
+
+        # Ausgabe des Abrechnungszeitraumes:
+        #print(f"Abrechnungszeitraum: {self.convertDateToGerman(self.gd.edaFileList[0]['timeBeginExpected'])} - " + 
+        #    f"{self.convertDateToGerman(self.gd.edaFileList[len(self.gd.edaFileList)-1]['timeEndExpected'])}")  
+
         if self.gd.edaFilesOkay==False:
             print(f"****  edaFilesOkay={self.gd.edaFilesOkay}  ****")
             print("****   Some Files do not exist!!!!  ****")
@@ -501,7 +534,7 @@ class InvoiceGeneration:
                 for line in filein:
                     i = i + 1
                     #print(i, line, end='')
-                    if (i > 1 and i < 4): # Zeilemobergrenze von 5 auf 4 gesetzt
+                    if (i > 1 and i < 5): # Zeilemobergrenze von 5 auf 4 gesetzt
                         pass
                         print(line, file=fileout, end='')
 
@@ -532,7 +565,7 @@ class InvoiceGeneration:
                 for line in filein:
                     i = i + 1
                     # print(i, line, end='')
-                    if (i > 4 and i < 15): #erste Zeie wurde von 7 auf 4 geändert
+                    if (i > 5 and i < 15): #erste Zeie wurde von 7 auf 4 geändert
                         pass
                         print(line, file=fileout, end='')
 
@@ -559,10 +592,10 @@ class InvoiceGeneration:
             reader = csv.DictReader(csvfile, delimiter=';')
             for row in reader:
                 print(row['Zeitraum von'], row['Zeitraum bis'], '\n')
-                structTime = time.strptime(row['Zeitraum von'], '%Y-%m-%d %H:%M:%S')
+                structTime = time.strptime(row['Zeitraum von'], '%d.%m.%Y %H:%M:%S')
                 fileDesc['timeBegin'] = self.gd.structTime_TO_dateTime(structTime)
                 print(fileDesc['timeBegin'])
-                structTime = time.strptime(row['Zeitraum bis'], '%Y-%m-%d %H:%M:%S')
+                structTime = time.strptime(row['Zeitraum bis'], '%d.%m.%Y %H:%M:%S')
                 fileDesc['timeEnd'] = self.gd.structTime_TO_dateTime(structTime)
                 print(fileDesc['timeEnd'])
                 pass
@@ -848,6 +881,15 @@ class InvoiceGeneration:
         Hier beginn die HTML Erzeugung mit jinja
         """
         logger.info("begin createHTMLInvoice" )
+
+        # Ausgabe des Abrechnungszeitraumes:
+        abrechnungsText = \
+            f"Abrechnungszeitraum: {self.convertDateToGerman(self.gd.edaFileList[0]['timeBeginExpected'])} - " +\
+            f"{self.convertDateToGerman(self.gd.edaFileList[len(self.gd.edaFileList)-1]['timeEndExpected'])}"  
+        #self.abrechnungsText = "blabla"
+        pass
+
+
         for privateElem in self.gd.privateList:
 
             fileName = self.config.interm +\
@@ -869,15 +911,18 @@ class InvoiceGeneration:
                 rabattNehmer = privateElem['rabattNehmer']
             else:
                 rabattNehmer = []
-
+            inventoryNumber = self.gd.increaseInventoryNumber()
+            rechnungsDatum = datetime.datetime.today()
+            rechnungsDatumText = self.convertDateToGerman(rechnungsDatum)
             #if self.gd.summeVerbrauchExists==True:
             #    summeVerbrauchText="{summeVerbrauch:>8.2f}".format(summeVerbrauch=self.gd.summeVerbrauch)
-
             #else:
             #    summeVerbrauchText = ' '
             # print('!!!!?', summeVerbrauchText)
             #row['LieferungText'] = "{Lieferung:>8.2f}".format(Lieferung=summeLieferung)
-            content = self.template.render(privateElem)
+
+            content = self.template.render(privateElem, abrechnungsText=abrechnungsText,
+                rechnungsDatumText=rechnungsDatumText, inventoryNumber=inventoryNumber)
             with open(fileName, mode="w", encoding="utf-8") as message:
                 message.write(content)
                 print(f"...wrote {fileName}")

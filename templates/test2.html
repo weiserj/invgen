@@ -11,16 +11,16 @@
 PRODUZENT MARKUS REIDLINGER</b><br> ZVR-Zahl: 1828364955 Obmann: Johann Weiser<br>Unterer Markt 9, 2170 Poysdorf<br>
 Tel.-Nr.:0699-12770031, Email: johann.weiser@aon.at</p>
 
-<p class="rechdat">10. Oktober 2025</p>
+<p class="rechdat">{{ rechnungsDatumText  }}</p>
 
 <p class="kunde">An {{Anrede}} <br>{{Vorname}} {{Name}}<br>{{Adresse}}<br>{{Postleitzahl}} {{Stadt}}<br><br><br></p>
 <header>
-    <h1>Rechnung-Nr. 1/2024 </h1>
+    <h1>Rechnung-Nr. {{inventoryNumber}} </h1>
 </header>
 
 
-
-<p>Abrechnungszeitraum vom  1.6.2024 - 30.6.2024 </p>
+         
+<p>{{ abrechnungsText }}</p>
 
 {% if edaListeGeberFlag == True %}
 <table> <!-- tabelle der Geber bestehend aus Header, edaListeGeber RabattListeGeber später auch footer!-->
