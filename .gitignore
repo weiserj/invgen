@@ -5,3 +5,11 @@ intermediate/edaPart2.csv
 intermediate/egger_irmgard.html
 intermediate/reidlinger_leopold.html
 intermediate/reidlinger_markus.html
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+.venv/
+venv/
