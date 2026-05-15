@@ -10,6 +10,11 @@ import datetime
 import time
 import invlog
 import logging
+import invPassword
+import imaplib
+from email.message import EmailMessage 
+# from datetime import datetime
+from tzlocal import get_localzone
 
 class Configuration:
     # Liste der Spaltenüberschriften,
@@ -41,6 +46,7 @@ class Configuration:
         # RC_Nummer ='RC103316' # für Wilhelmsdorf-Weiser
         # RC_Nummer ='RC103317' # für Poysdorf-Weiser
         self.RC_Nummer ='RC100122' # für Reidlinger
+        self.EEGName = 'Reidlinger'
         
         # AT00200000000RC100122000000000037_20240601_20240630_202407111405.xlsx'
         # self.edaFileFull = self.dataDir + '/' + self.edaFile
@@ -48,7 +54,12 @@ class Configuration:
         self.edaPart1 = self.interm + '/edaPart1.csv'
         self.edaPart2 = self.interm + '/edaPart2.csv'
 
-
+        # für dasSchreiben der emails
+        self.emailBase = "wjTest."
+        self.imapServer = invPassword.imapServer
+        self.mailName = invPassword.mailName
+        self.mailPassword = invPassword.mailPassword ###   muss vor checkin gelöscht werden   ###
+        self.EEGName = 'Reidlinger'
 
     def createBasicDirectories(self):
         # erzeugt alle Ausgabedrectories soferne sie nicht existieren
@@ -940,6 +951,69 @@ class InvoiceGeneration:
                 f"/{privateElem['Name'].lower()}_{privateElem['Vorname'].lower()}.pdf"
             self.url_to_pdf(fileNameIn, fileNameOut)
 
+    # List der Mailboxen ermitteln
+    def listMailboxes(self, m, information="blank"):
+        print(f"\nListe aller Mailboxen: Mark={information}")
+        l = m.list()
+        mailboxList = l[1]
+        for l2 in mailboxList:
+            print(l2)
+        print(f"*** ENDE *** Mark={information}\n")
+
+    #Nach dem Aufruf dieser Methode, ist plötzlich kein Mail mehr fett??
+    # Womit hat das zu tun? 
+    def listSingleMailbox(self, m, mailbox):
+        m.list(mailbox)
+        m.select(mailbox)
+        print(f'\nListing of Mailbox "{mailbox}":')
+        # das \\Seen flag wird implizit gesetzt
+        x = m.fetch('1:*', "(UID INTERNALDATE FLAGS BODY[HEADER.fields (subject)])")
+        for y in x[1]:
+            print(y)
+
+
+    def emailGeneration(self):
+        logger.info("Start of emailGeneration...") 
+        #emailBase = "Drafts.EEGsTest.Reidlinger"
+        M = imaplib.IMAP4(self.config.imapServer)
+        M.login(self.config.mailName, self.config.mailPassword)
+        mailBoxName = f"{self.config.emailBase}{self.config.EEGName}" + \
+            f".J{self.config.inventYear}.M{self.config.inventMonthLast:02}"
+        #fileName2 = f'{self.config.RC_Nummer}_{actMonth:02}_Uebersicht.csv'
+        y = M.create(mailBoxName)
+        x = M.subscribe(mailBoxName)
+        x = M.select(mailbox=mailBoxName)
+
+        for privateElem in self.gd.privateList:
+            fileNameIn = self.config.interm +\
+                f"/{privateElem['Name'].lower()}_{privateElem['Vorname'].lower()}.html"
+            fileNameOut = self.config.resultDir +\
+                f"/{privateElem['Name'].lower()}_{privateElem['Vorname'].lower()}.pdf"
+            print(f"fileNamedIn = {fileNameIn}")
+        # einfaches Mail erzeugen
+        y = datetime.datetime.now().astimezone()
+        msg1 = EmailMessage()
+        msg1['Subject'] = f"Dies ist deine Abrechnung für den Zeitraum von {y}"
+        msg1['From'] = "Johann Weiser<johann.weiser@aon.at>"
+        msg1['To'] =  "Pauli<johannp.weiser@gmail.com>" 
+        msg1.set_content(f" Es ist jetzt {y}\n"
+                         "Schöne Grüße!!\n\n")
+        #tz = get_localzone()
+        # y=datetime.datetime.today(tzinfo=tz)
+        x=M.append(mailbox=mailBoxName, flags='\\Draft', 
+            #date_time= None, 
+            date_time=imaplib.Time2Internaldate(y),
+            message=msg1.as_bytes() )
+        
+        x=self.listMailboxes(M, "end")
+        logger.info(x)
+        # M.store('1', '+FLAGS', '(\\Drafts)')
+        self.listSingleMailbox(M, mailBoxName)
+        x = M.close()
+        # x = M.unsubscribe(mailBoxName)
+        x = M.logout()
+        pass
+        # logger.info("everything is empty...")c
 
     # das Hauptprogramm, im Moment fast alles in Kommentar
     def invoiceGeneration(self):
@@ -974,6 +1048,10 @@ class InvoiceGeneration:
         # logger.setLevel(logging.INFO)
         self.createHtmlInvoice()
         self.createPDFInvoice()
+
+        logger.setLevel(logging.INFO)
+        self.emailGeneration()
+        
 
 
 # ursprüngliche Version

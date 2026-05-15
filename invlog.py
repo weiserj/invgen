@@ -46,3 +46,5 @@ if __name__ == '__main__':
     do_any(logger2)
     print(logger2.getEffectiveLevel())
     logger.setLevel(logging.INFO)
+
+# just a testline to check if file visible for staging/commiting in git/github
