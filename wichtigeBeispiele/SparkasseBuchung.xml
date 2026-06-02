@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:pain.001.001.03">
+	<CstmrCdtTrfInitn>
+		<GrpHdr>
+			<MsgId>2025-04-15-b</MsgId>
+			<CreDtTm>2025-04-15T15:27:54+01:00</CreDtTm>
+			<NbOfTxs>1</NbOfTxs>
+			<CtrlSum>  242.83</CtrlSum>
+			<InitgPty>
+				<Nm>AT062024600000030130</Nm>
+			</InitgPty>
+		</GrpHdr>
+		<PmtInf>
+			<PmtInfId>PmtInf-2025-04-15-b</PmtInfId>
+			<PmtMtd>TRF</PmtMtd>
+			<BtchBookg>true</BtchBookg>
+			<NbOfTxs>1</NbOfTxs>
+			<CtrlSum>242.83</CtrlSum>
+			<ReqdExctnDt>2025-04-29</ReqdExctnDt>
+			<Dbtr>
+				<Nm>Lokale Energiegemeinschaft Mühle Poysdorf</Nm>
+			</Dbtr>
+			<DbtrAcct>
+				<Id>
+					<IBAN>AT062024600000030130</IBAN>
+				</Id>
+				<Ccy>EUR</Ccy>
+			</DbtrAcct>
+			<DbtrAgt>
+				<FinInstnId>
+					<BIC>SPPDAT21XXX</BIC>
+				</FinInstnId>
+			</DbtrAgt>
+			<ChrgBr>SLEV</ChrgBr>
+			<CdtTrfTxInf>
+				<PmtId>
+					<EndToEndId>EndToEndId-2025-04-15-b</EndToEndId>
+				</PmtId>
+				<Amt>
+					<InstdAmt Ccy="EUR">242.83</InstdAmt>
+				</Amt>
+				<Cdtr>
+					<Nm>Markus Reidlinger</Nm>
+				</Cdtr>
+				<CdtrAcct>
+					<Id>
+						<IBAN>AT943250100002408664</IBAN>
+					</Id>
+				</CdtrAcct>
+				<RmtInf>
+					<Strd>
+						<CdtrRefInf>
+							<Tp>
+								<CdOrPrtry>
+									<Cd>SCOR</Cd>
+								</CdOrPrtry>
+							</Tp>
+							<Ref>EEG-Reidlinger-R003-2025-04-15-b</Ref>
+						</CdtrRefInf>
+					</Strd>
+				</RmtInf>
+			</CdtTrfTxInf>
+		</PmtInf>
+	</CstmrCdtTrfInitn>
+</Document>

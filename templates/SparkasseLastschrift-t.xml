@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:pain.008.001.02">
+	<CstmrDrctDbtInitn>
+		<GrpHdr>
+			<MsgId>{{date}}</MsgId>
+			<CreDtTm>{{time}}</CreDtTm>
+			<NbOfTxs>{{transactions}}</NbOfTxs>
+			<CtrlSum>{{gesamtSumme}}</CtrlSum>
+			<InitgPty>
+				<Nm>AT062024600000030130</Nm>
+			</InitgPty>
+		</GrpHdr>
+		<PmtInf>
+			<PmtInfId>Pmt-{{date}}</PmtInfId>
+			<PmtMtd>DD</PmtMtd>
+			<BtchBookg>true</BtchBookg>
+			<NbOfTxs>{{transactions}}</NbOfTxs>
+			<CtrlSum>{{gesamtSumme}}</CtrlSum>
+			<PmtTpInf>
+				<LclInstrm>
+					<Cd>CORE</Cd>
+				</LclInstrm>
+				<SeqTp>RCUR</SeqTp>
+			</PmtTpInf>
+			<ReqdColltnDt>{{transactionDate}}</ReqdColltnDt>
+			<Cdtr>
+				<Nm>Lokale Energiegemeinschaft Mühle Poysdorf</Nm>
+			</Cdtr>
+			<CdtrAcct>
+				<Id>
+					<IBAN>AT062024600000030130</IBAN>
+				</Id>
+				<Ccy>EUR</Ccy>
+			</CdtrAcct>
+			<CdtrAgt>
+				<FinInstnId>
+					<BIC>SPPDAT21XXX</BIC>
+				</FinInstnId>
+			</CdtrAgt>
+
+			{%- for x5 in privateList -%}
+			{%- if ("edaListNehmerFlag" in x5) and ( x5['edaListNehmerFlag'] == True)  -%}
+			{%- if ('summePreisBruttoExists' in x5) and (x5['summePreisBruttoExists'] == True) and
+			  		(x5['summePreisBrutto']> 0.01) -%}
+
+			<DrctDbtTxInf>
+				<PmtId>
+					<EndToEndId>EndToEndId-{{date}}</EndToEndId>
+				</PmtId>
+				<InstdAmt Ccy="EUR">{{{x5.summePreisBruttoText}}</InstdAmt>
+				<DrctDbtTx>
+					<MndtRltdInf>
+						<MndtId>{{x5.Mandatsreferenz}}</MndtId>
+						<DtOfSgntr>{{x5.MandatsDatum}}</DtOfSgntr>
+					</MndtRltdInf>
+					<CdtrSchmeId>
+						<Id>
+							<PrvtId>
+								<Othr>
+									<Id>AT65ZZZ00000080440</Id> 
+								</Othr>
+							</PrvtId>
+						</Id>
+					</CdtrSchmeId>
+				</DrctDbtTx>
+				<DbtrAgt>
+					<FinInstnId>
+						<Othr>
+							<Id>NOTPROVIDED</Id>
+						</Othr> 
+					</FinInstnId>
+				</DbtrAgt>
+				<Dbtr>
+					<Nm> {{x5.Vorname}} {{x5.Name}} </Nm>
+				</Dbtr>
+				<DbtrAcct>
+					<Id>
+						<IBAN>{{x5.Konto}}</IBAN>
+					</Id>
+				</DbtrAcct>
+				<RmtInf>
+					<Strd>
+						<CdtrRefInf>
+							<Tp>
+								<CdOrPrtry>
+									<Cd>SCOR</Cd>
+								</CdOrPrtry>
+							</Tp>
+							<Ref>EEG-Reidlinger-{{x5.Mandatsreferenz}}-{{date}}5-a</Ref>
+						</CdtrRefInf>
+					</Strd>
+				</RmtInf>
+			</DrctDbtTxInf>
+				{%- endif -%}
+				{%- endif -%}
+			{%- endfor -%}
+			</PmtInf>
+	</CstmrDrctDbtInitn>
+</Document>

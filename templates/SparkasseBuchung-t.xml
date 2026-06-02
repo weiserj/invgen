@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:pain.001.001.03">
+	<CstmrCdtTrfInitn>
+		<GrpHdr>
+			<MsgId>{{date}}</MsgId>
+			<CreDtTm>{{time}}}</CreDtTm>
+			<NbOfTxs>{{transactions}}</NbOfTxs>
+			<CtrlSum>{{gesamtSumme}}</CtrlSum>
+			<InitgPty>
+				<Nm>AT062024600000030130</Nm>
+			</InitgPty>
+		</GrpHdr>
+		<PmtInf>
+			<PmtInfId>PmtInf-{{date}}</PmtInfId>
+			<PmtMtd>TRF</PmtMtd>
+			<BtchBookg>true</BtchBookg>
+			<NbOfTxs>{{transaction}}</NbOfTxs>
+			<CtrlSum>{{gesamtSumme}}</CtrlSum>
+			<ReqdExctnDt>{{transactionDate}}</ReqdExctnDt>
+			<Dbtr>
+				<Nm>Lokale Energiegemeinschaft Mühle Poysdorf</Nm>
+			</Dbtr>
+			<DbtrAcct>
+				<Id>
+					<IBAN>AT062024600000030130</IBAN>
+				</Id>
+				<Ccy>EUR</Ccy>
+			</DbtrAcct>
+			<DbtrAgt>
+				<FinInstnId>
+					<BIC>SPPDAT21XXX</BIC>
+				</FinInstnId>
+			</DbtrAgt>
+			<ChrgBr>SLEV</ChrgBr>
+			{%- for x5 in privateList -%}
+			{%- if ("edaListeGebeFlag in x5") and (x5[#edaListeGeberFlag] == True) -%}
+			{%- if ('summePreisBruttoExits' in x5) and(x5['summePreisBruttoExist'] == True) and -%}
+					(x5['summePreisBrutto'] > 0.1) -%}
+
+			<CdtTrfTxInf>
+				<PmtId>
+					<EndToEndId>EndToEndId-{{date}}</EndToEndId>
+				</PmtId>
+				<Amt>
+					<InstdAmt Ccy="EUR">{{x5.summePreisBruttoText}}</InstdAmt>
+				</Amt>
+				<Cdtr>
+					<Nm>{{x5.Vorname}} {{x5.Name}}</Nm>
+				</Cdtr>
+				<CdtrAcct>
+					<Id>
+						<IBAN>{{x5.Konto}}</IBAN>
+					</Id>
+				</CdtrAcct>
+				<RmtInf>
+					<Strd>
+						<CdtrRefInf>
+							<Tp>
+								<CdOrPrtry>
+									<Cd>SCOR</Cd>
+								</CdOrPrtry>
+							</Tp>
+							<Ref>EEG-Reidlinger-{{x5.Mandatsreferenz}}-{{date}}</Ref>
+						</CdtrRefInf>
+					</Strd>
+				</RmtInf>
+			</CdtTrfTxInf>
+				{%- endif -%}
+				{%- endif -%}
+			{%- endfor -%}
+		</PmtInf>
+	</CstmrCdtTrfInitn>
+</Document>
