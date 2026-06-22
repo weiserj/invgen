@@ -13,8 +13,10 @@ import logging
 import invPassword
 import imaplib
 from email.message import EmailMessage 
+from email import message_from_bytes
 # from datetime import datetime
 from tzlocal import get_localzone
+import smtplib
 
 class Configuration:
     # Liste der Spaltenüberschriften,
@@ -42,7 +44,7 @@ class Configuration:
         # ein solches File pro Monat!
         self.inventYear = 2025
         self.inventMonthFirst = 1
-        self.inventMonthLast = 6
+        self.inventMonthLast = 12
         # RC_Nummer ='RC103316' # für Wilhelmsdorf-Weiser
         # RC_Nummer ='RC103317' # für Poysdorf-Weiser
         self.RC_Nummer ='RC100122' # für Reidlinger
@@ -54,12 +56,30 @@ class Configuration:
         self.edaPart1 = self.interm + '/edaPart1.csv'
         self.edaPart2 = self.interm + '/edaPart2.csv'
 
+        # Rechnuungsdatum...
+        self.invoiceDate = datetime.date.today()
+        self.invoiceTime = datetime.datetime.now(get_localzone())
+        self.invoiceTimeStr = self.invoiceTime.strftime('%Y-%m-%dT%H:%M:%S%z')
+
+
         # für dasSchreiben der emails
         self.emailBase = "wjTest."
         self.imapServer = invPassword.imapServer
         self.mailName = invPassword.mailName
         self.mailPassword = invPassword.mailPassword ###   muss vor checkin gelöscht werden   ###
         self.EEGName = 'Reidlinger'
+        self.gMailBoxName = f"{self.emailBase}{self.EEGName}" + \
+            f".J{self.inventYear}.M{self.inventMonthLast:02}"
+
+        # für das Senden der emails
+        self.gSendEmails = True
+        #wenn gNumberOfEmails = None dann werden alle emails Gesendet!!
+        # self.gNumberOfEmails = None
+        #bei gNumberOfEmails= 0,dann weren keine emails gesendet!
+        self.gNumberOfEmails= 1
+        #self.gTestEmailAddress = None , dann wird die emailAddress nicht geändert!
+        #self.gTestEmailAddress = None 
+        self.gTestEmailAddress ="Johann Weiser <johannp.weiser@gmail.com>"
 
     def createBasicDirectories(self):
         # erzeugt alle Ausgabedrectories soferne sie nicht existieren
@@ -418,19 +438,29 @@ class InvoiceGeneration:
     def convertDateToGerman(self, myDate):
         # eines Datums in deutscher Notation    
         return f"{myDate.day}. {self.monatsName(myDate.month)} {myDate.year}"
+    
+    def billingPeriodString(self):
+        #self.inventYear = 2025
+        #self.inventMonthFirst = 1
+        #self.inventMonthLast = 6
+        x = (f"{self.config.inventYear}.{self.config.inventMonthFirst:02}.01 - "
+        f"{self.config.inventYear}.{self.config.inventMonthLast:02}."
+        f"{self.daysOfMonth(self.config.inventYear,self.config.inventMonthLast):02}")
+        return x 
+
+    def daysOfMonth(self, year, month):
+        if (month==1 or month== 3 or month==5 or month== 7 or month==8
+            or month==10 or month==12):
+            return 31
+        if (month==4 or month== 6 or month==9 or month==11):
+            return 30
+        if (year%4==0):
+            return 29
+        else:
+            return 28
+            
 
     def checkEdaFiles(self):
-        def daysOfMonth(self, year, month):
-            if (month==1 or month== 3 or month==5 or month== 7 or month==8
-                or month==10 or month==12):
-                return 31
-            if (month==4 or month== 6 or month==9 or month==11):
-                return 30
-            if (year%4==0):
-                return 29
-            else:
-                return 28
-            
         # begin of checkEdaFiles!!
         # Daten sind in GenerationData (Variable self.gd gespeichert)
         self.gd.edaFilesOkay = True           
@@ -439,7 +469,7 @@ class InvoiceGeneration:
             fileName =  \
                 self.config.RC_Nummer + '_' + str(self.config.inventYear) + '-'+ f'{actMonth:02}' + '-01T00_00-'  \
                 + str(self.config.inventYear) + '-'+ f'{actMonth:02}' + '-' + \
-                f'{daysOfMonth(self, self.config.inventYear, actMonth)}T23_45.xlsx'
+                f'{self.daysOfMonth(self.config.inventYear, actMonth)}T23_45.xlsx'
             # print(fileName)
             fileName = self.config.edaDataDir +"/" +fileName
             fileName2 = f'{self.config.RC_Nummer}_{actMonth:02}_Uebersicht.csv'
@@ -452,7 +482,7 @@ class InvoiceGeneration:
                  'ueberSicht':fileName2, 'edaPart1':fileName3, 'edaPart2':fileName4, 
                  'timeBeginExpected': datetime.datetime(self.config.inventYear,actMonth, 1, 0, 0),
                  'timeEndExpected': datetime.datetime(self.config.inventYear, actMonth,
-                    daysOfMonth(self, self.config.inventYear, actMonth), 23, 45),
+                    self.daysOfMonth(self.config.inventYear, actMonth), 23, 45),
                  'timeBegin': None, 'timeEnd': None}
 
                     
@@ -745,8 +775,10 @@ class InvoiceGeneration:
                     #self.gd.addRabatt(row)
 
     def ermittleRechnungsSummen2(self):
-
+        invlog.debugEdaListe("before Rechnungssummen", self.gd.privateList)
+        pass
         for privateElem in self.gd.privateList:
+            #logger2.info(f"NEW Name:{privateElem['Name']}   Vorname:{privateElem['Vorname']}")
             summeVerbrauch = 0
             summeLieferung = 0
             summePreisBrutto = 0
@@ -754,6 +786,9 @@ class InvoiceGeneration:
             summeLieferungExists = False
             summePreisBruttoExists = False
             for edaElem in privateElem['edaListeNehmer']:
+                # logger2.info(f"NEW Zählpunkt:{edaElem['Zählpunkt']}   Energierichtung:{edaElem['Energierichtung']}")
+                # logger2.info(f"Verbrauch:{edaElem['Verbrauch']}") if 'Verbrauch' in edaElem else "Verbrauch in edaElem missing"
+                # logger2.info(f"Verbrauch:{edaElem['Lieferung']}") if 'Lieferung' in edaElem else "Lieferung in edaElem missing"
                 if 'Verbrauch' in edaElem:
                     summeVerbrauch += edaElem['Verbrauch']
                     summeVerbrauchExists = True
@@ -786,7 +821,9 @@ class InvoiceGeneration:
             pass
             if 'rabattNehmer' in privateElem:
                 for rabattElem in privateElem['rabattNehmer']:
-                    print('*** rabatt-Geber: ', len(privateElem['rabattNehmer']))
+                    # Korrektur print('*** rabatt-Geber: ', len(privateElem['rabattNehmer']))
+                    # Hier ist Korrektur
+                    print('*** rabatt-Nehmer: ', len(privateElem['rabattNehmer']))
                     sv1 += rabattElem['Verbrauch']  #!!!
                     summeLieferung += rabattElem['Verbrauch'] #!!!
                     summeLieferungxists = True
@@ -798,23 +835,33 @@ class InvoiceGeneration:
                 privateElem['summeVerbrauchExists'] = True
                 privateElem['summeVerbrauch'] = summeVerbrauch
                 privateElem['summeVerbrauchText'] = \
-                    "{summeVerbrauch:>8.2f}".format(summeVerbrauch=summeVerbrauch)
+                    "{summeVerbrauch:>4.2f}".format(summeVerbrauch=summeVerbrauch)
             else:
+                privateElem['summeVerbrauchExists'] = False
                 privateElem['summeVerbrauchText'] = ' '
             if summeLieferungExists==True:
                 privateElem['summeLieferungExists'] = True
                 privateElem['summeLieferung'] = summeLieferung
                 privateElem['summeLieferungText'] = \
-                    "{summeLieferung:>8.2f}".format(summeLieferung=summeLieferung)
+                    "{summeLieferung:>4.2f}".format(summeLieferung=summeLieferung)
             else:
+                privateElem['summeLieferungExists'] = False
                 privateElem['summeLieferungText'] = ' '
             if summePreisBruttoExists==True:
                 privateElem['summePreisBruttoExists'] = True
-                privateElem['summePreisBrutto'] = summeLieferung
+                # Korrektur!!!
+                # privateElem['summePreisBrutto'] = summeLieferung
+                privateElem['summePreisBrutto'] = summePreisBrutto
                 privateElem['summePreisBruttoText'] = \
-                    "{summePreisBrutto:>8.2f}".format(summePreisBrutto=summePreisBrutto)
+                    "{summePreisBrutto:>4.2f}".format(summePreisBrutto=summePreisBrutto)
             else:
+                privateElem['summePreisBruttoExists'] = False
                 privateElem['summePreisBruttoText'] = ' '
+
+        # debug der privateList
+        logger.setLevel(logging.DEBUG)
+        invlog.debugPrivateList("after Rechungssummen2", self.gd.privateList)
+        pass
 
 
     def ermittleRechnungsSummen(self):
@@ -838,6 +885,12 @@ class InvoiceGeneration:
                     summePreisBrutto += x['preisBrutto']
                     summePreisBruttoExists = True
             pass
+            # Anmerkung zu den Abkürzungen:
+            # sva summe Verbrauch all
+            # sla summe Lieferung all
+            # spa summe preis all
+            # die Methode hier nämlich "ermittleRechnungsSummen" wird derzeit nicht mehr aufgerufen,
+            # statt dessen die Methode "ermittleRechnungsSummen2" (!!!)
             sva = summeVerbrauch
             sla = summeLieferung
             spa = summePreisBrutto
@@ -886,6 +939,7 @@ class InvoiceGeneration:
                 privateElem['summePreisBruttoText'] = "{summePreisBrutto:>8.2f}".format(summePreisBrutto=summePreisBrutto)
             else:
                 privateElem['summePreisBruttoText'] = ' '
+        pass
 
     def createHtmlInvoice(self):
         """
@@ -923,7 +977,7 @@ class InvoiceGeneration:
             else:
                 rabattNehmer = []
             inventoryNumber = self.gd.increaseInventoryNumber()
-            rechnungsDatum = datetime.datetime.today()
+            rechnungsDatum = self.config.invoiceDate
             rechnungsDatumText = self.convertDateToGerman(rechnungsDatum)
             #if self.gd.summeVerbrauchExists==True:
             #    summeVerbrauchText="{summeVerbrauch:>8.2f}".format(summeVerbrauch=self.gd.summeVerbrauch)
@@ -971,49 +1025,242 @@ class InvoiceGeneration:
         for y in x[1]:
             print(y)
 
+    def removeMailsOfMailbox(self, m, mailbox):
+        x1 = m.list(mailbox)
+        x2 = m.select(mailbox)
+        print(f'\nRemove mails of  Mailbox "{mailbox}":')
+        #x =  m.fetch('1:*', "(UID INTERNALDATE FLAGS BODY[HEADER.fields (subject)])")
+        #for y in x[1]:
+        #    print(y)
+        #    m.store('1','+FLAGS', '(\\Deleted)')
+        status, data = m.search(None, "ALL")
+        if status == "OK":
+            msg_ids = data[0].split()
+            print(f"Gefundene IDs: {msg_ids}")
+            for msg_id in msg_ids[:-2]: # die letzten zwei bleiben!!
+                m.store(msg_id,'+FLAGS', '(\\Deleted)')
+            m.expunge()
+        print(f'Remove mails of mailbox of single Mail of Mailbox "{mailbox}":\n')
+
 
     def emailGeneration(self):
         logger.info("Start of emailGeneration...") 
         #emailBase = "Drafts.EEGsTest.Reidlinger"
         M = imaplib.IMAP4(self.config.imapServer)
         M.login(self.config.mailName, self.config.mailPassword)
-        mailBoxName = f"{self.config.emailBase}{self.config.EEGName}" + \
-            f".J{self.config.inventYear}.M{self.config.inventMonthLast:02}"
+        # wird schon beim Objekt als gMailBoxName gesetzt
+        #self.config.gMailBoxName = f"{self.config.emailBase}{self.config.EEGName}" + \
+        #   f".J{self.config.inventYear}.M{self.config.inventMonthLast:02}"
         #fileName2 = f'{self.config.RC_Nummer}_{actMonth:02}_Uebersicht.csv'
-        y = M.create(mailBoxName)
-        x = M.subscribe(mailBoxName)
-        x = M.select(mailbox=mailBoxName)
+        y = M.create(self.config.gMailBoxName)
+        x = M.subscribe(self.config.gMailBoxName)
+        x = M.select(mailbox=self.config.gMailBoxName)
+        self.removeMailsOfMailbox(M, self.config.gMailBoxName)
+        y = datetime.datetime.now().astimezone()
+        billingPeriod = self.billingPeriodString()
 
+        # Schleife über die Kunden
         for privateElem in self.gd.privateList:
             fileNameIn = self.config.interm +\
                 f"/{privateElem['Name'].lower()}_{privateElem['Vorname'].lower()}.html"
             fileNameOut = self.config.resultDir +\
                 f"/{privateElem['Name'].lower()}_{privateElem['Vorname'].lower()}.pdf"
             print(f"fileNamedIn = {fileNameIn}")
-        # einfaches Mail erzeugen
-        y = datetime.datetime.now().astimezone()
-        msg1 = EmailMessage()
-        msg1['Subject'] = f"Dies ist deine Abrechnung für den Zeitraum von {y}"
-        msg1['From'] = "Johann Weiser<johann.weiser@aon.at>"
-        msg1['To'] =  "Pauli<johannp.weiser@gmail.com>" 
-        msg1.set_content(f" Es ist jetzt {y}\n"
-                         "Schöne Grüße!!\n\n")
-        #tz = get_localzone()
-        # y=datetime.datetime.today(tzinfo=tz)
-        x=M.append(mailbox=mailBoxName, flags='\\Draft', 
-            #date_time= None, 
-            date_time=imaplib.Time2Internaldate(y),
-            message=msg1.as_bytes() )
+
+            # einfaches Mail erzeugen
+            msg1 = EmailMessage()
+            msg1['Subject'] = f"Dies ist deine Abrechnung für den Zeitraum {billingPeriod}"
+            msg1['From'] = "Johann Weiser <johann.weiser@aon.at>"
+            # msg1['To'] =  f"{privateElem['Vorname']} {privateElem['Name']}<{privateElem['email']}>"
+            # msg1['To'] =  f"{privateElem['email']}"
+            msg1['Cc'] =  "Pauli <johannp.weiser@gmail.com>" 
+            if privateElem['Anrede'] == "Hr":
+                anrede1 = f"Lieber Herr {privateElem['Vorname']} {privateElem['Name']}"
+            elif privateElem['Anrede'] == "Fr":
+                anrede1 = f"Liebe Frau {privateElem['Vorname']} {privateElem['Name']}"
+            else: # Familie
+                anrede1 = f"Liebe Familie {privateElem['Name']}"
+
+            content=F"{anrede1}!\n"\
+                    f"Anbei findest du deine Abrechnung für den Zeitraum {billingPeriod}!\n"\
+                    "Die ist eine TEST-EMAIL!!!. Es wird kein Betrag überwiesen oder abgebucht!!!\n"\
+                    "    Liebe Grüße!!\n"\
+                    "           Johann Weiser\n\n"
+            msg1.set_content(content)
+            #tz = get_localzone()
+            # y=datetime.datetime.today(tzinfo=tz)
+
+            fileName = f"{privateElem['Name'].lower()}_{privateElem['Vorname'].lower()}.pdf"
+            fileName2 = f"{self.config.resultDir}/"+ fileName 
+            print(f"fileName2 = {fileName2}")
+            # fn = "/home/johann/repos2/invgen/results/" + fileName
+            #fn2 = './invgen/results/' + fileName
+            fn2 = fileName2
+            with open(fn2, 'rb') as content_file:
+                # with open('./results/' + filename, 'rb') as content_file:
+                content = content_file.read()
+                msg1.add_attachment(content, maintype='application', subtype='pdf', filename=fileName,
+                    disposition="attachment")
+
+
+            x=M.append(mailbox=self.config.gMailBoxName, flags='\\Draft', 
+                #date_time= None, 
+                date_time=imaplib.Time2Internaldate(y),
+                message=msg1.as_bytes() )
         
         x=self.listMailboxes(M, "end")
         logger.info(x)
         # M.store('1', '+FLAGS', '(\\Drafts)')
-        self.listSingleMailbox(M, mailBoxName)
+        self.listSingleMailbox(M, self.config.gMailBoxName)
         x = M.close()
         # x = M.unsubscribe(mailBoxName)
         x = M.logout()
         pass
         # logger.info("everything is empty...")c
+
+    # Emails mittels smtp senden.
+    # Allerdings werden da noch ein paar Parameter berücksichtigt!
+    def sendMails(self):
+        if (not self.config.gSendEmails):
+            logger.info("Method sendMails not exeuted!!!")
+            return 
+        if (self.config.gNumberOfEmails==0):
+            logger.info("Method sendMails not exeuted, gNumberOfEmails==0!!!")
+            return 
+        logger.info("Start of sendMails...")
+        logger.info(f"gTestEmailAddress={self.config.gTestEmailAddress}") 
+        # login at imap4
+        M = imaplib.IMAP4(self.config.imapServer)
+        M.login(self.config.mailName, self.config.mailPassword)
+        # now login at smtp
+        x = M.subscribe(self.config.gMailBoxName)
+        x = M.select(mailbox=self.config.gMailBoxName)
+        # M.login(self.config.mailName, self.config.mailPassword)
+        logger.info("Now mailbox is open...")
+        S = smtplib.SMTP(self.config.imapServer, 587)
+        S.starttls()
+        S.login(self.config.mailName, self.config.mailPassword)
+        status, data = M.search(None, 'ALL')           # or other search criteria
+        for num in data[0].split():
+            st, msgdata = M.fetch(num, '(RFC822)')
+            raw = msgdata[0][1]
+            msg = message_from_bytes(raw)               # returns email.message.EmailMessage (py3.6+)
+            logger.info(f"Before: To: {msg['To']} Cc: {msg['Cc']} Bcc: {msg['Bcc']}") 
+            del msg['Cc']
+            del msg['To']
+            msg['To'] = self.config.gTestEmailAddress
+            msg['Cc'] = None
+            # msg['Bcc'] = None
+            logger.info(f"after: To: {msg['To']} Cc: {msg['Cc']} Bcc: {msg['Bcc']}")
+            #S.set_debuglevel(1)
+            S.send_message(msg, "Johann Weiser <johann.weiser@aon.at>", self.config.gTestEmailAddress)
+
+            pass
+            break #break after onemessage is sent
+
+        x = M.close()
+        x = M.logout()
+        S.close()
+        
+        logger.info("End of sendMails...") 
+        
+
+    def createSparkasseLastschrift(self):
+        logger.info("""   Liste der Stromkäufer   """)
+        print(self.config.invoiceDate)
+        print(self.config.invoiceTime)
+        invlog.debugPrivateList("Begin of SparkasseLastSchrift", self.gd.privateList)
+        gesamtSumme = 0
+        transactions = 0
+        transactions2 = 0
+        # for x in elem['edaListeNehmer']
+        for privateElem in self.gd.privateList:
+            if ("edaListeNehmerFlag" in privateElem) and \
+                (privateElem["edaListeNehmerFlag"] == True):
+                transactions2 +=1
+                print(f"*** last   tranctions2 = {transactions2}")
+                print(f"*** last   'summePreisBruttoExists in privateElem' = {'summePreisBruttoExists' in privateElem}") ##???
+                print(f"*** last   'privateElem[summePreisBruttoExists]' = {privateElem['summePreisBruttoExists']}") 
+                print(f"*** last   'privateElem[summePreisBrutto]' = {privateElem['summePreisBrutto']}")
+                print(f"*** last   'privateElem[summePreisBruttoText]' = {privateElem['summePreisBruttoText']}")
+                print(f"*** last   'privateElem' = {privateElem}")
+                pass
+
+                if ('summePreisBruttoExists' in privateElem) and\
+                     (privateElem['summePreisBruttoExists'] == True) and\
+                     (privateElem['summePreisBrutto'] > 0.1):
+                    gesamtSumme += float(privateElem['summePreisBruttoText'])
+                    transactions += 1
+                    print(f"*** last   Name = {privateElem['Name']} Vorname = {privateElem['Vorname']}")
+                    # print(f"*** last   summePreisBruttoText = {privateElem['summePreisBruttoText']}")
+                    pass
+        print(f"*** last   tranctions = {transactions}")
+        print(f"*** last   gesamtSumme = {gesamtSumme}")
+
+        filename= self.config.resultDir + "/SparkasseLastschrift.xml"
+        self.template = self.environment.get_template("SparkasseLastschrift-t.xml")
+        transactionDate = self.config.invoiceDate + datetime.timedelta(days=14)
+        privateListe1 = self.gd.privateList
+        print(f"len = {len(privateListe1)}")
+        content =self.template.render(
+            privateList=self.gd.privateList,
+            date=str(self.config.invoiceDate) + "-a",
+            time=self.config.invoiceTimeStr,
+            gesamtSumme="{gesamtSumme:>4.2f}".format(gesamtSumme=gesamtSumme),
+            transactions=transactions,
+            transactionDate = transactionDate,)
+            # unklar,  was die folgende Zeile soll????
+            # reNr=F"{privateElem['Mandatsreferenz']}   {self.config.dtGerman.dateText3()},")
+        with open(filename, mode="w", encoding="utf-8") as message:
+            message.write(content)
+            print(f"...wrote {filename}")
+
+
+    def createSparkasseBuchung(self):
+        """ Überweisen der Einnahmen"""
+        print("***   Begin of createSparkasse Buchung   ***")
+        print(self.config.invoiceDate)
+        print(self.config.invoiceTime)
+
+        gesamtSumme = 0
+        transactions = 0
+        # for x in elem['edaListNehmer']
+        for privateElem in self.gd.privateList:
+            if ('edaListeGeberFlag' in privateElem) and (privateElem['edaListeGeberFlag'] == True):
+                print(f"*** last   'summePreisBruttoExists in privateElem' = {'summePreisBruttoExists' in privateElem} ") 
+                print(f"*** last   'privateElem[summePreisBruttoExists]' = {privateElem['summePreisBruttoExists']} ")
+                print(f"*** last   'privateElem[summePreisBrutto]' = {privateElem['summePreisBrutto']} ")  
+                print(f"*** last   'privateElem[summePreisBruttoText]' = {privateElem['summePreisBruttoText']} ")                                 
+                # print(f"*** last   'privateElem' = {privateElem} ")
+                pass
+
+                if ('summePreisBruttoExists' in privateElem) and (privateElem['summePreisBruttoExists']== True) and \
+                    (privateElem['summePreisBrutto'] > 0.1):
+                    gesamtSumme += float(privateElem['summePreisBruttoText'])
+                    transactions += 1
+                    print(f"*** last   Name = {privateElem['Name']} Vorname = {privateElem['Vorname']}")
+                    print(f"*** last   summePreisBruttoText = {privateElem['summePreisBruttoText']}")
+        print(f"*** last   tranctions = {transactions}")
+        print(f"*** last   gesamtSumme = {gesamtSumme}")
+
+        filename= self.config.resultDir + "/SparkasseBuchung.xml"
+        self.template = self.environment.get_template("SparkasseBuchung-t.xml")
+        transactionDate = self.config.invoiceDate + datetime.timedelta(days=16)
+        privateListe1 = self.gd.privateList
+        print(f"len = {len(privateListe1)}")
+        content =self.template.render(
+            privateList=self.gd.privateList,
+            date=str(self.config.invoiceDate) + "-b",
+            time=self.config.invoiceTimeStr,
+            gesamtSumme="{gesamtSumme:>4.2f}".format(gesamtSumme=gesamtSumme),
+            transactions=transactions,
+            transactionDate = transactionDate,
+            # reNr=F"{privateElem['Mandatsreferenz']}   {self.config.dtGerman.dateText3()}"
+            )
+        with open(filename, mode="w", encoding="utf-8") as message:
+            message.write(content)
+            print(f"...wrote {filename}")
+        print("***   End of createSparkasse Buchung   ***")            
 
     # das Hauptprogramm, im Moment fast alles in Kommentar
     def invoiceGeneration(self):
@@ -1043,14 +1290,25 @@ class InvoiceGeneration:
         #self.readEda2(self.config.edaPart2)
         logger.setLevel(logging.INFO)
         self.createPrivate(self.config.mitgliederCsv)
-        logger.setLevel(logging.WARNING)
+
+        # logger.setLevel(logging.WARNING)
+        logger.setLevel(logging.DEBUG)
         self.ermittleRechnungsSummen2()
         # logger.setLevel(logging.INFO)
         self.createHtmlInvoice()
         self.createPDFInvoice()
 
+        # email generation lassen wir einstweilen aus!
         logger.setLevel(logging.INFO)
-        self.emailGeneration()
+        # self.emailGeneration()
+        # self.sendMails()
+
+        logger.setLevel(logging.DEBUG)
+        #lastschrift lassen wir einstweilen!!
+        self.createSparkasseLastschrift()
+        # Buchung setzen wir auch in Kommentar
+        self.createSparkasseBuchung()
+        
         
 
 

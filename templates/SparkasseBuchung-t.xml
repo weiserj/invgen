@@ -3,7 +3,7 @@
 	<CstmrCdtTrfInitn>
 		<GrpHdr>
 			<MsgId>{{date}}</MsgId>
-			<CreDtTm>{{time}}}</CreDtTm>
+			<CreDtTm>{{time}}</CreDtTm>
 			<NbOfTxs>{{transactions}}</NbOfTxs>
 			<CtrlSum>{{gesamtSumme}}</CtrlSum>
 			<InitgPty>
@@ -14,7 +14,7 @@
 			<PmtInfId>PmtInf-{{date}}</PmtInfId>
 			<PmtMtd>TRF</PmtMtd>
 			<BtchBookg>true</BtchBookg>
-			<NbOfTxs>{{transaction}}</NbOfTxs>
+			<NbOfTxs>{{transactions}}</NbOfTxs>
 			<CtrlSum>{{gesamtSumme}}</CtrlSum>
 			<ReqdExctnDt>{{transactionDate}}</ReqdExctnDt>
 			<Dbtr>
@@ -33,8 +33,8 @@
 			</DbtrAgt>
 			<ChrgBr>SLEV</ChrgBr>
 			{%- for x5 in privateList -%}
-			{%- if ("edaListeGebeFlag in x5") and (x5[#edaListeGeberFlag] == True) -%}
-			{%- if ('summePreisBruttoExits' in x5) and(x5['summePreisBruttoExist'] == True) and -%}
+			{%- if ("edaListeGeberFlag" in x5) and (x5['edaListeGeberFlag'] == True) -%}
+			{%- if ('summePreisBruttoExists' in x5) and(x5['summePreisBruttoExists'] == True) and 
 					(x5['summePreisBrutto'] > 0.1) -%}
 
 			<CdtTrfTxInf>

@@ -38,16 +38,25 @@
 				</FinInstnId>
 			</CdtrAgt>
 
-			{%- for x5 in privateList -%}
-			{%- if ("edaListNehmerFlag" in x5) and ( x5['edaListNehmerFlag'] == True)  -%}
+			{%- for x5 in privateList -%} 
+			{# Test-V-1 {{x5.Vorname}} 
+			Test-N-1 {{x5.Name}} 
+			Test-1-a {{"edaListNehmerFlag" in x5}} 
+			Test-1-b {{ x5["edaListeNehmerFlag"]}} 
+			Test-1-c {{ x5["summePreisBrutto"]}} #}
+			{%- if ("edaListeNehmerFlag" in x5) and ( x5['edaListeNehmerFlag'] == True)  -%}
+			{#  Test-V-2 {{x5.Vorname}} 
+			Test-N-2 {{x5.Name}} #}
 			{%- if ('summePreisBruttoExists' in x5) and (x5['summePreisBruttoExists'] == True) and
 			  		(x5['summePreisBrutto']> 0.01) -%}
+			{#  Test-V-3 {{x5.Vorname}} 
+			Test-N-3 {{x5.Name}} #}
 
 			<DrctDbtTxInf>
 				<PmtId>
 					<EndToEndId>EndToEndId-{{date}}</EndToEndId>
 				</PmtId>
-				<InstdAmt Ccy="EUR">{{{x5.summePreisBruttoText}}</InstdAmt>
+				<InstdAmt Ccy="EUR">{{x5.summePreisBruttoText}}</InstdAmt>
 				<DrctDbtTx>
 					<MndtRltdInf>
 						<MndtId>{{x5.Mandatsreferenz}}</MndtId>
