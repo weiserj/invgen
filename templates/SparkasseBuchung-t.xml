@@ -11,7 +11,7 @@
 			</InitgPty>
 		</GrpHdr>
 		<PmtInf>
-			<PmtInfId>PmtInf-{{date}}</PmtInfId>
+			<PmtInfId>PI-{{date}}</PmtInfId>
 			<PmtMtd>TRF</PmtMtd>
 			<BtchBookg>true</BtchBookg>
 			<NbOfTxs>{{transactions}}</NbOfTxs>
@@ -49,7 +49,9 @@
 				</Cdtr>
 				<CdtrAcct>
 					<Id>
-						<IBAN>{{x5.Konto}}</IBAN>
+						{%- set kontoNoBlanks = x5.Konto.replace(' ', '') -%}
+						{# <IBAN>{{x5.Konto}}</IBAN> #}
+						<IBAN>{{kontoNoBlanks}}</IBAN>
 					</Id>
 				</CdtrAcct>
 				<RmtInf>

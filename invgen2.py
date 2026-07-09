@@ -56,6 +56,14 @@ class Configuration:
         self.edaPart1 = self.interm + '/edaPart1.csv'
         self.edaPart2 = self.interm + '/edaPart2.csv'
 
+        # Mitgliedschaft und Gebühren
+        # memberShioFlag:wenn TRue dann wird derBetrag eingehoben, 
+        # bei False nicht, da der Betrag nur einmal pro Jahr eingehoben wird.
+        self.membershipFlag = True
+        # Jahr für die Einhebung
+        self.membershipYear = 2025
+        self.membershipFee = 15  # € 15.-/Jahr
+        
         # Rechnuungsdatum...
         self.invoiceDate = datetime.date.today()
         self.invoiceTime = datetime.datetime.now(get_localzone())
@@ -292,6 +300,11 @@ class GenerationData:
         # es werden nicht die Zeiger auf die dictionaries gespeichert sondern
         # vermutlich die Pointer auf die Strukturen, so genau ist das in Python niccht
         # beschrieben
+        if self.config.membershipFlag==False and row['Rabatt'=='M']:
+            # ignore! Tue nichts Rabatt für Mitgliedschaft egal,
+            # wenn Midliedschaft nichtkassiert wird!
+            pass
+            return
         rabattElem = {'rabattNehmer': self.privateDict[rabattNehmerZp],
                       'rabattGeber': self.privateDict[rabattGeberZp],
                       'edaData': self.edaDict[rabattNehmerZp],
@@ -307,32 +320,40 @@ class GenerationData:
             privateElemGeber['rabattNehmer'] = []
         privateElemGeber['rabattNehmer'].append(rabattElem)
 
-        #korektur des Prozentwertes auf ganze Zahlen,
-        # das passiertvor  den Rechnungen
-        rabattFlag = False
-        x = rabattElem['rabattZeile']['Rabatt']
-        if x != '':
-            rabattElem['rabattZeile']['Rabatt'] = int(float(x))
-            rabattFlag = True
-        if rabattFlag == True:
-            percentFactor = float(rabattElem['rabattZeile']['Rabatt']) / 100
-        else:
-            centFactor = float(rabattElem['rabattZeile']['Rabatt-Cent']) * 0.01
-
-        if rabattFlag == True:
-            value1 = -rabattElem['edaData']['Verbrauch'] * percentFactor
-            rabattElem['Verbrauch'] = value1
-            rabattElem['VerbrauchText'] = "{value: >8.2f}".format(value=value1)
-            value2 = -rabattElem['edaData']['preisBrutto']
-            rabattElem['preisBrutto'] = value2 * percentFactor
-            rabattElem['preisBruttoText'] = "{value: >8.2f}".format(value=value2)
-        else: 
+        if row['Rabatt'] == 'M':
+            # Behandlung von membership-Rabatt
             rabattElem['Verbrauch'] = 0
             rabattElem['VerbrauchText'] = ''
-            value2 = -rabattElem['edaData']['Verbrauch']
-            value2 *= centFactor
-            rabattElem['preisBrutto'] = value2 
+            rabattElem['preisBrutto'] = - self.config.membershipFee
+            value2 = -self.config.membershipFee
             rabattElem['preisBruttoText'] = "{value: >8.2f}".format(value=value2)
+        else:
+            #korektur des Prozentwertes auf ganze Zahlen,
+            # das passiert vor  den Rechnungen
+            rabattFlag = False
+            x = rabattElem['rabattZeile']['Rabatt']
+            if x != '':
+                rabattElem['rabattZeile']['Rabatt'] = int(float(x))
+                rabattFlag = True
+            if rabattFlag == True:
+                percentFactor = float(rabattElem['rabattZeile']['Rabatt']) / 100
+            else:
+                centFactor = float(rabattElem['rabattZeile']['Rabatt-Cent']) * 0.01
+
+            if rabattFlag == True:
+                value1 = -rabattElem['edaData']['Verbrauch'] * percentFactor
+                rabattElem['Verbrauch'] = value1
+                rabattElem['VerbrauchText'] = "{value: >8.2f}".format(value=value1)
+                value2 = -rabattElem['edaData']['preisBrutto']
+                rabattElem['preisBrutto'] = value2 * percentFactor
+                rabattElem['preisBruttoText'] = "{value: >8.2f}".format(value=value2)
+            else: 
+                rabattElem['Verbrauch'] = 0
+                rabattElem['VerbrauchText'] = ''
+                value2 = -rabattElem['edaData']['Verbrauch']
+                value2 *= centFactor
+                rabattElem['preisBrutto'] = value2 
+                rabattElem['preisBruttoText'] = "{value: >8.2f}".format(value=value2)
 
         #korektur des Prozentwertes auf ganze Zahlen
         #value = rabattElem['rabattZeile']['Rabatt']
@@ -781,7 +802,7 @@ class InvoiceGeneration:
             #logger2.info(f"NEW Name:{privateElem['Name']}   Vorname:{privateElem['Vorname']}")
             summeVerbrauch = 0
             summeLieferung = 0
-            summePreisBrutto = 0
+            summePreisBrutto = round(0, ndigits=2)
             summeVerbrauchExists = False
             summeLieferungExists = False
             summePreisBruttoExists = False
@@ -796,7 +817,11 @@ class InvoiceGeneration:
                 #    summeLieferung += edaElem['Lieferung']
                 #    summeLieferungExists = True
                 if 'preisBrutto' in edaElem:
-                    summePreisBrutto += edaElem['preisBrutto']
+                    summePreisBrutto += round(edaElem['preisBrutto'], ndigits=2)
+                    summePreisBruttoExists = True
+                # Mitgliedsbeitrag!!
+                if (self.config.membershipFlag == True):
+                    summePreisBrutto += round(self.config.membershipFee, ndigits=2)
                     summePreisBruttoExists = True
                 pass
             for edaElem in privateElem['edaListeGeber']:
@@ -804,7 +829,10 @@ class InvoiceGeneration:
                     summeLieferung += edaElem['Lieferung']
                     summeLieferungExists = True
                 if 'preisBrutto' in edaElem:
-                    summePreisBrutto += edaElem['preisBrutto']
+                    summePreisBrutto += round(edaElem['preisBrutto'], ndigits=2)
+                    summePreisBruttoExists = True
+                if (self.config.membershipFlag == True):
+                    summePreisBrutto -= round(self.config.membershipFee, ndigits=2)
                     summePreisBruttoExists = True
                 pass
             sv1 = 0
@@ -816,7 +844,7 @@ class InvoiceGeneration:
                     summeVerbrauch += rabattElem['Verbrauch']
                     summeVerbrauchExists = True
                     sv2 += rabattElem['preisBrutto']
-                    summePreisBrutto += rabattElem['preisBrutto']
+                    summePreisBrutto += round(rabattElem['preisBrutto'], ndigits=2)
                     summePreisBruttoExists = True
             pass
             if 'rabattNehmer' in privateElem:
@@ -828,7 +856,7 @@ class InvoiceGeneration:
                     summeLieferung += rabattElem['Verbrauch'] #!!!
                     summeLieferungxists = True
                     sv2 += rabattElem['preisBrutto']
-                    summePreisBrutto += rabattElem['preisBrutto']
+                    summePreisBrutto += round(rabattElem['preisBrutto'], ndigits=2)
                     summePreisBruttoExists = True
             pass
             if summeVerbrauchExists==True:
@@ -952,6 +980,7 @@ class InvoiceGeneration:
             f"Abrechnungszeitraum: {self.convertDateToGerman(self.gd.edaFileList[0]['timeBeginExpected'])} - " +\
             f"{self.convertDateToGerman(self.gd.edaFileList[len(self.gd.edaFileList)-1]['timeEndExpected'])}"  
         #self.abrechnungsText = "blabla"
+        membershipFlag=self.config.membershipFlag
         pass
 
 
@@ -987,7 +1016,9 @@ class InvoiceGeneration:
             #row['LieferungText'] = "{Lieferung:>8.2f}".format(Lieferung=summeLieferung)
 
             content = self.template.render(privateElem, abrechnungsText=abrechnungsText,
-                rechnungsDatumText=rechnungsDatumText, inventoryNumber=inventoryNumber)
+                rechnungsDatumText=rechnungsDatumText, inventoryNumber=inventoryNumber, 
+                membershipFlag=self.config.membershipFlag, membershipYear=self.config.membershipYear, 
+                membershipFee=self.config.membershipFee)
             with open(fileName, mode="w", encoding="utf-8") as message:
                 message.write(content)
                 print(f"...wrote {fileName}")
@@ -1245,7 +1276,8 @@ class InvoiceGeneration:
 
         filename= self.config.resultDir + "/SparkasseBuchung.xml"
         self.template = self.environment.get_template("SparkasseBuchung-t.xml")
-        transactionDate = self.config.invoiceDate + datetime.timedelta(days=16)
+        # 18 Tage später erfolgt die Überweisung an die PV-Produzenten
+        transactionDate = self.config.invoiceDate + datetime.timedelta(days=18)
         privateListe1 = self.gd.privateList
         print(f"len = {len(privateListe1)}")
         content =self.template.render(
@@ -1300,8 +1332,8 @@ class InvoiceGeneration:
 
         # email generation lassen wir einstweilen aus!
         logger.setLevel(logging.INFO)
-        # self.emailGeneration()
-        # self.sendMails()
+        #self.emailGeneration()
+        #self.sendMails()
 
         logger.setLevel(logging.DEBUG)
         #lastschrift lassen wir einstweilen!!

@@ -84,7 +84,9 @@
 				</Dbtr>
 				<DbtrAcct>
 					<Id>
-						<IBAN>{{x5.Konto}}</IBAN>
+						{%- set kontoNoBlanks = x5.Konto.replace(' ', '') -%}
+						{# <IBAN>{{x5.Konto}}</IBAN> #}
+						<IBAN>{{kontoNoBlanks}}</IBAN>
 					</Id>
 				</DbtrAcct>
 				<RmtInf>
@@ -95,7 +97,7 @@
 									<Cd>SCOR</Cd>
 								</CdOrPrtry>
 							</Tp>
-							<Ref>EEG-Reidlinger-{{x5.Mandatsreferenz}}-{{date}}5-a</Ref>
+							<Ref>EEG-Reidlinger-{{x5.Mandatsreferenz}}-{{date}}</Ref>
 						</CdtrRefInf>
 					</Strd>
 				</RmtInf>
