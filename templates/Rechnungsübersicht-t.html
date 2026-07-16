@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>Der erste Test f&uuml;r eine pdf-Seite &szlig; </title>
+
+	<link href="css/style2.css" rel="stylesheet" />
+</head>
+<body>
+<p class="verein"><b>Verein: LOKALE ENERGIEGEMEINSCHAFT <br>TRAFOSTATION M&Uuml;HLE-POYSDORF,<br>
+PRODUZENT MARKUS REIDLINGER</b><br> ZVR-Zahl: 1828364955 Obmann: Johann Weiser<br>Unterer Markt 9, 2170 Poysdorf<br>
+Tel.-Nr.:0699-12770031, Email: johann.weiser@aon.at</p>
+
+<p class="rechdat">{{ rechnungsDatumText  }}</p>
+
+<header>
+    <h1>Rechnungsübersicht </h1>
+</header>
+
+
+<!-- Abrechnungszeitraum-->
+<p>{{ abrechnungsText }}</p> 
+<p>voraussichtlicher Einziehungstermin für SEPA-Lastschiften: {{transactionDate }}</p>
+<p>voraussichtlicher Termin für Überweisungen von Gutschriften: {{gutschriftDate}}</p>
+
+
+
+{% set membershipFeeNeg = -membershipFee %}
+{% set membershipFeeNegText="{membershipFeeNeg:>8.2f}".format(membershipFeeNeg=membershipFeeNeg) %}
+{% set membershipFeeText="{membershipFee:>8.2f}".format(membershipFee=membershipFee) %}
+<!--Hier gibts es potentiell immer zwei Tabellen für jedes Mitglied: 
+    - nämlich die Prodzenten (edaListeGeberFlag == True) 
+    - und die Produzenten (edaListeNehmerFlag == True)
+    beide Tabellen bei einem Kunden sind bisher nicht vorgesehen,
+    es können aber sehr wohl mehrere Zählpunkte bei einem Kunden existieren, z.B.:
+    mehrere Zählpukte zum Konsumieren, aber auch mehrere Zählpunkte zum Einspeisen. 
+    Beide Arten von Zählpunkten (zum Kosumieren und zum Einspeisen), das ist 
+    bisher nicht vorgekommen, da gibt es
+    noch Probleme.
+-->
+<!-- 
+Nun ist hier die Tabelle der Produzenten, d.h. die Liste der Zählpunkt)e eines Teilnehmers,
+welche Strom in das Netz einliefert (edaListeGeberFlag == True)!
+-->
+
+<p> </p>
+<p> Tabelle 1: Einnahmen </p>
+<table> <!-- tabelle der Geber bestehend aus Header, --- Einnahmen ---  edaListeGeber RabattListeGeber später auch footer!
+      Dei Überschrift "Einspeisedaten" spannt sich über 6 Spalten-->
+  <tr>
+    <th colspan="5" class="center fettGross" >Einnahmen</th>
+  </tr>
+  <!-- Die nächste Zeile enthält die Spaltenüberschriften! 
+  -->
+  <tr>
+    <th>Name</th>
+    <th class="center">Preis Netto<br>(12 Cent/kWh)</th>
+    <th class="center"> MwSt(&euro;)<br>13 %</th>
+    <th class="center"> MwSt(&euro;)<br>rev.char.</th>
+    <th class="center">Preis <br>Brutto</th>
+  </tr>
+  <!--
+    Nun wird über die Liste der Einspeisepunkte gegangen
+    und die entsprechenden Daten in die Tabelle eingetragen!
+  -->
+  {% set gesamtPreis = namespace(value=0.00) %}
+  {% for x in privateList %}
+  {% if x.edaListeNehmerFlag == True %}
+    {% set gesamtPreis.value = gesamtPreis.value + ("{value: >8.2f}".format(value=x.summePreisBrutto) | float) %}
+    
+  <tr>
+    <td> {{ x.Vorname }} {{ x.Name }} </td>
+    <td class="euro"> {{x.summePreisBruttoText}}</td>
+    <td class="center"> </td>
+    <td class="euro"> </td>
+    <td class="euro"> {{x.summePreisBruttoText}}</td>
+  </tr>
+  {% endif %}
+  {% endfor %}
+  {% set s1 = gesamtPreis.value %}
+  {% set gesamtPreisText = "{gesamtPreis:>8.2f}".format(gesamtPreis=s1) %}
+
+   <tfoot>
+  <tr>
+    <td class="fett">Abbuchungen Gesamt</td>
+    <td class="euro fett">{{gesamtPreisText}}</td>
+    <td class="center fett"> </td>
+    <td class="euro fett"> </td>
+    <td class="euro fett">{{gesamtPreisText}}</td>
+    </tr>
+  </tfoot>
+</table>
+{% set gesamteEinahmen = gesamtPreis.value %}
+<p> </p>
+<p> Tabelle 2: Ausgaben </p>
+
+<table> <!-- tabelle der Geber bestehend aus Header, --- Ausgaben ---  edaListeGeber RabattListeGeber später auch footer!
+      Dei Überschrift "Einspeisedaten" spannt sich über 6 Spalten-->
+  <tr>
+    <th colspan="5" class="center fettGross" >Ausgaben</th>
+  </tr>
+  <!-- Die nächste Zeile enthält die Spaltenüberschriften! 
+  -->
+  <tr>
+    <th>Name</th>
+    <th class="center">Preis Netto<br>(12 Cent/kWh)</th>
+    <th class="center"> MwSt(&euro;)<br>13 %</th>
+    <th class="center"> MwSt(&euro;)<br>rev.char.</th>
+    <th class="center">Preis <br>Brutto</th>
+  </tr>
+  <!--
+    Nun wird über die Liste der Einspeisepunkte gegangen
+    und die entsprechenden Daten in die Tabelle eingetragen!
+  -->
+  {% set gesamtPreis = namespace(value=0.0) %}
+  {% for x in privateList %}
+  {% if x.edaListeGeberFlag == True %}
+    {% set gesamtPreis.value = gesamtPreis.value + ("{value: >8.2f}".format(value=x.summePreisBrutto) | float) %}
+    
+  <tr>
+    <td> {{ x.Vorname }} {{ x.Name }} </td>
+    <td class="euro">{{x.summePreisBruttoText}}</td>
+    <td class="center"> </td>
+    <td class="euro"> </td>
+    <td class="euro">{{x.summePreisBruttoText}}</td>
+  </tr>
+  {% endif %}
+  {% endfor %}
+  {% set s1 = gesamtPreis.value %}
+  {% set gesamtPreisText = "{gesamtPreis:>8.2f}".format(gesamtPreis=s1) %}
+
+   <tfoot>
+  <tr>
+    <td class="fett">Gutschrift-Gesamt</td>
+    <td class="euro fett">{{gesamtPreisText}}</td>
+    <td class="center fett"> </td>
+    <td class="euro fett"> </td>
+    <td class="euro fett">{{gesamtPreisText}}</td>
+    </tr>
+  </tfoot>
+</table>
+{% set gesamteAusgaben = gesamtPreis.value %}
+
+<p> </p>
+<p> Tabelle 3: Mitgliedsbeiträge </p>
+
+<table> <!-- tabelle der Geber bestehend aus Header, --- Mitgliedsbeiträge ---  edaListeGeber RabattListeGeber später auch footer!
+      Dei Überschrift "Einspeisedaten" spannt sich über 5 Spalten-->
+  <tr>
+    <th colspan="5" class="center fettGross" >Mitgliedsbeiträge</th>
+  </tr>
+  <!-- Die nächste Zeile enthält die Spaltenüberschriften! 
+  -->
+  <tr>
+    <th>Name</th>
+    <th class="center">Preis Netto<br>(12 Cent/kWh)</th>
+    <th class="center"> MwSt(&euro;)<br>13 %</th>
+    <th class="center"> MwSt(&euro;)<br>rev.char.</th>
+    <th class="center">Preis <br>Brutto</th>
+  </tr>
+  <!--
+    Nun wird über die Liste der Einspeisepunkte gegangen
+    und die entsprechenden Daten in die Tabelle eingetragen!
+  -->
+  
+  {% set mitgliedsPreis = namespace(value=0.0) %}
+  {% for x in privateList %}
+  {% set mitgliedsPreis = namespace(value=0.0) %}
+  {% if 'edaListeNehmer' in x %}
+  {% for y in x['edaListeNehmer'] %}
+  {% set mitgliedsPreis.value = mitgliedsPreis.value + ("{value: >8.2f}".format(value=membershipFee) | float) %}
+  {% endfor %}
+  {% endif %}
+  {% if 'edaListeGeber' in x %}
+  {% for z in x['edaListeGeber'] %}
+  {% set mitgliedsPreis.value = mitgliedsPreis.value + ("{value: >8.2f}".format(value=membershipFee) | float) %}
+  {% endfor %}
+  {% endif %}
+  <tr>
+    <td> {{ x.Vorname }} {{ x.Name }} </td>
+    <td class="euro"> {{mitgliedsPreis.value}}</td>
+    <td class="center"> </td>
+    <td class="euro"> </td>
+    <td class="euro">{{mitgliedsPreis.value}}</td>
+  </tr>
+  {% endfor %}
+  
+  {% set s1 = membershipFees %}
+  {% set gesamtPreisText = "{gesamtPreis:>8.2f}".format(gesamtPreis=s1) %}
+
+   <tfoot>
+  <tr>
+    <td class="fett">Mitgliedsbeiträge-Gesamt</td>
+    <td class="euro fett">{{gesamtPreisText}}</td>
+    <td class="center fett"> </td>
+    <td class="euro fett"> </td>
+    <td class="euro fett">{{gesamtPreisText}}</td>
+    </tr>
+  </tfoot>
+</table>
+{% set alleMitgliedsbeiträge = membershipFees %}
+
+<p> </p>
+<p> Tabelle 4: Übersicht </p>
+
+<table> <!-- tabelle der Geber bestehend aus Header, --- Übersicht ---  edaListeGeber RabattListeGeber später auch footer!
+      Die Überschrift "Einspeisedaten" spannt sich über 5 Spalten-->
+  <tr>
+    <th colspan="5" class="center fettGross" >Übersicht</th>
+  </tr>
+  <!-- Die nächste Zeile enthält die Spaltenüberschriften! 
+  -->
+  <tr>
+    <th>Position</th>
+    <th class="center">Preis Netto<br>(12 Cent/kWh)</th>
+    <th class="center"> MwSt(&euro;)<br>13 %</th>
+    <th class="center"> MwSt(&euro;)<br>rev.char.</th>
+    <th class="center">Preis <br>Brutto</th>
+  </tr>
+  <!--
+    Hier gibt es keine Liste!
+    Es wird folgende Übersicht gebildet:
+              gesamte Einnahmen(inkl. Mitgliedsbeiträge)
+              - Ausgaben (Zahlungen an die Produzenten)
+              - Mitgliedsbeiträge (Kosten für Bank und für die Vereinsabrechnung)
+    und die entsprechenden Daten werden in die Tabelle eingetragen!
+              Summe ergibt ca. Null Euro
+  -->
+  
+  {% set mitgliedsPreis = namespace(value=0.0) %}
+
+  {# steht schon am Ende von Tabelle 1 
+  {% set gesamteEinahmen = gesamtPreis.value %} #}
+
+  {# die nächsten 2 Zeilen sind spezisch! #}
+  {% set s1 = gesamteEinahmen %}
+  {% set gesamtPreisText = "{gesamtPreis:>8.2f}".format(gesamtPreis=s1) %}
+
+
+  <tr>
+    <td> Einnahmen </td>
+    <td class="euro"> {{gesamtPreisText}}</td>
+    <td class="center"> </td>
+    <td class="euro"> </td>
+    <td class="euro">{{gesamtPreisText}}</td>
+  </tr>
+
+  # die nächsten 2 Zeilen sind spezisch! #}
+  {% set s1 = -gesamteAusgaben %}
+  {% set gesamtPreisText = "{gesamtPreis:>8.2f}".format(gesamtPreis=s1) %}
+
+  <tr>
+    <td> - Ausgaben </td>
+    <td class="euro"> {{gesamtPreisText}}</td>
+    <td class="center"> </td>
+    <td class="euro"> </td>
+    <td class="euro">{{gesamtPreisText}}</td>
+  </tr>
+  
+
+{% set s1 = -membershipFees %}
+{% set gesamtPreisText = "{gesamtPreis:>8.2f}".format(gesamtPreis=s1) %} 
+
+  <tr>
+    <td> - Mitgliedsbeiträge </td>
+    <td class="euro"> {{gesamtPreisText}}</td>
+    <td class="center"> </td>
+    <td class="euro"> </td>
+    <td class="euro">{{gesamtPreisText}}</td>
+  </tr>
+
+
+  {# {% set gesamteEinahmen = gesamtPreis.value %}
+  {% set gesamteAusgaben = gesamtPreis.value %} 
+  {% set s1 = membershipFees %}
+  {% set gesamtPreisText = "{gesamtPreis:>8.2f}".format(gesamtPreis=s1) %} #}
+
+  {% set s1 = gesamteEinahmen - gesamteAusgaben - membershipFees %}
+  {% set gesamtPreisText = "{gesamtPreis:>8.2f}".format(gesamtPreis=s1) %}
+
+  <tfoot>
+  <tr>
+    <td class="fett">Differenz <br>(fast ausgeglichen)</td>
+    <td class="euro fett">{{gesamtPreisText}}</td>
+    <td class="center fett"> </td>
+    <td class="euro fett"> </td>
+    <td class="euro fett">{{gesamtPreisText}}</td>
+    </tr>
+  </tfoot>
+</table>
+
+
+<p class="hinweis"><b>Hinweise:</b></p>
+<ul >
+  <li><b>Kleinunternehmerregelung:</b> Gem. &sect; 6 Abs. 1 Z 27 UStG wird keine Umsatzsteuer berechnet (Kleinunternehmerregelung).</li>
+  <li><b>Hinweis f&uuml;r Privatpersonen, welche PV-Strom produzieren:</b><br>
+    Sie d&uuml;rfen keine MwSt verrechnen, daher scheint in der Übersicht auch keine auf.</li>
+  <li><b>Hinweis f&uuml;r steuerpflichtige Unternehmen, welche PV-Strom produzieren:</b><br>
+    Sie erhalten keine MwSt. Die MwSt. wird mittels revers charging vom Verein direkt andas Finanzamt gezahlt</li>
+  <li><b>Hinweis f&uuml;r steuerpflichtige Landwirte, welche PV-Strom produzieren:</b><br>
+    Sie erhalten 13% MwSt. Die MwSt. müssen sie selbst an das Finanzamt weiterleiten.</li>
+</ul>
+</body>
+
+</html>

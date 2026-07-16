@@ -68,6 +68,9 @@ class Configuration:
         self.invoiceDate = datetime.date.today()
         self.invoiceTime = datetime.datetime.now(get_localzone())
         self.invoiceTimeStr = self.invoiceTime.strftime('%Y-%m-%dT%H:%M:%S%z')
+        self.transactionDate = self.invoiceDate + datetime.timedelta(days=14)
+        self.gutschriftDate = self.invoiceDate + datetime.timedelta(days=18)
+
 
 
         # für dasSchreiben der emails
@@ -1018,7 +1021,9 @@ class InvoiceGeneration:
             content = self.template.render(privateElem, abrechnungsText=abrechnungsText,
                 rechnungsDatumText=rechnungsDatumText, inventoryNumber=inventoryNumber, 
                 membershipFlag=self.config.membershipFlag, membershipYear=self.config.membershipYear, 
-                membershipFee=self.config.membershipFee)
+                membershipFee=self.config.membershipFee,
+                transactionDate = self.convertDateToGerman(self.config.transactionDate),
+                gutschriftDate = self.convertDateToGerman(self.config.gutschriftDate),)
             with open(fileName, mode="w", encoding="utf-8") as message:
                 message.write(content)
                 print(f"...wrote {fileName}")
@@ -1230,7 +1235,7 @@ class InvoiceGeneration:
 
         filename= self.config.resultDir + "/SparkasseLastschrift.xml"
         self.template = self.environment.get_template("SparkasseLastschrift-t.xml")
-        transactionDate = self.config.invoiceDate + datetime.timedelta(days=14)
+        transactionDate = self.config.transactionDate
         privateListe1 = self.gd.privateList
         print(f"len = {len(privateListe1)}")
         content =self.template.render(
@@ -1277,7 +1282,7 @@ class InvoiceGeneration:
         filename= self.config.resultDir + "/SparkasseBuchung.xml"
         self.template = self.environment.get_template("SparkasseBuchung-t.xml")
         # 18 Tage später erfolgt die Überweisung an die PV-Produzenten
-        transactionDate = self.config.invoiceDate + datetime.timedelta(days=18)
+        gutschriftDate = self.config.gutschriftDate 
         privateListe1 = self.gd.privateList
         print(f"len = {len(privateListe1)}")
         content =self.template.render(
@@ -1286,13 +1291,70 @@ class InvoiceGeneration:
             time=self.config.invoiceTimeStr,
             gesamtSumme="{gesamtSumme:>4.2f}".format(gesamtSumme=gesamtSumme),
             transactions=transactions,
-            transactionDate = transactionDate,
+            transactionDate = gutschriftDate,
             # reNr=F"{privateElem['Mandatsreferenz']}   {self.config.dtGerman.dateText3()}"
             )
         with open(filename, mode="w", encoding="utf-8") as message:
             message.write(content)
             print(f"...wrote {filename}")
         print("***   End of createSparkasse Buchung   ***")            
+
+
+    def createHtmlRechnungsübersicht(self):
+        """
+        Hier beginn die Erzeugung der HTML-Rechungsübersicht mit jinja
+        Zunächst einmal werden die globalen Daten ermittelt,
+        es ist schwer die Daten während eien jinj-Laufes zu ermitteln!
+        """
+
+        logger.info("begin createHTMLRechnungsübersicht" )
+
+        # zunächst einmal die Definition der globlen Daten  für die Rechnungsäübwersicht
+        gInvoiceOverview = {'income': round(0, ndigits=2),
+                            'expenses': round(0, ndigits=2),
+                            'membershipFees': round(0, ndigits=2)}
+        i = 0
+        for x in self.gd.privateList:
+            for y in x['edaListeNehmer']:
+                i += 1
+            for y in x['edaListeGeber']:
+                i += 1
+        gInvoiceOverview['membershipFees'] = round(i*self.config.membershipFee, ndigits=2)
+
+        # Ausgabe des Abrechnungszeitraumes:
+        abrechnungsText = \
+            f"Abrechnungszeitraum: {self.convertDateToGerman(self.gd.edaFileList[0]['timeBeginExpected'])} - " +\
+            f"{self.convertDateToGerman(self.gd.edaFileList[len(self.gd.edaFileList)-1]['timeEndExpected'])}"  
+        pass
+
+        # kommt in Rechnungsübersicht-t.xml
+        # for privateElem in self.gd.privateList:
+
+        self.template = self.environment.get_template("Rechnungsübersicht-t.html")
+        fileName = self.config.interm +\
+            f"/Rechnungsübersicht.html"
+        rechnungsDatum = self.config.invoiceDate
+        rechnungsDatumText = self.convertDateToGerman(rechnungsDatum)
+
+        content = self.template.render(privateList=self.gd.privateList, abrechnungsText=abrechnungsText,
+            rechnungsDatumText=rechnungsDatumText, 
+            membershipFlag=self.config.membershipFlag, membershipYear=self.config.membershipYear, 
+            membershipFee=self.config.membershipFee,
+            transactionDate = self.convertDateToGerman(self.config.transactionDate),
+            gutschriftDate = self.convertDateToGerman(self.config.gutschriftDate),
+            membershipFees = gInvoiceOverview['membershipFees'])
+        with open(fileName, mode="w", encoding="utf-8") as message:
+            message.write(content)
+            print(f"...wrote {fileName}")
+
+
+    def createPDFRechnungsübersicht(self):
+        fileNameIn = self.config.interm +\
+            f"/Rechnungsübersicht.html"
+        fileNameOut = self.config.resultDir +\
+            f"/Rechnungsübersicht.pdf"
+        self.url_to_pdf(fileNameIn, fileNameOut)
+
 
     # das Hauptprogramm, im Moment fast alles in Kommentar
     def invoiceGeneration(self):
@@ -1329,6 +1391,9 @@ class InvoiceGeneration:
         # logger.setLevel(logging.INFO)
         self.createHtmlInvoice()
         self.createPDFInvoice()
+        # Rechnungsübersicht!!
+        self.createHtmlRechnungsübersicht()
+        self.createPDFRechnungsübersicht()
 
         # email generation lassen wir einstweilen aus!
         logger.setLevel(logging.INFO)
